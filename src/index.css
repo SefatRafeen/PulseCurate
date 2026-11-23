@@ -1,0 +1,68 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  --pc-bg: #0B0F19;
+  --pc-surface: #111827;
+  --pc-surface-elevated: #172033;
+  --pc-border: rgba(255, 255, 255, 0.09);
+  --pc-text: #F8FAFC;
+  --pc-text-muted: #94A3B8;
+  --pc-accent: #38BDF8;
+  --pc-accent-fg: #04121E;
+  --pc-accent-soft: rgba(56, 189, 248, 0.14);
+  --pc-success: #10B981;
+  --pc-warning: #F59E0B;
+  --pc-danger: #EF4444;
+  --pc-font-display: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  --pc-font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
+  --pc-font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, monospace;
+}
+
+@layer base {
+  html {
+    background-color: var(--pc-bg);
+    color: var(--pc-text);
+    font-family: var(--pc-font-body);
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    background-color: var(--pc-bg);
+    color: var(--pc-text);
+    min-height: 100dvh;
+    overflow-x: hidden;
+  }
+
+  h1, h2, h3, h4, .font-display {
+    font-family: var(--pc-font-display);
+  }
+
+  .font-mono-tabular {
+    font-family: var(--pc-font-mono);
+    font-variant-numeric: tabular-nums;
+  }
+}
+
+/* Custom scrollbar with subtle contrast */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--pc-border);
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}

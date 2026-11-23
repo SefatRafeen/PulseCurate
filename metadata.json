@@ -1,0 +1,6 @@
+{
+  "name": "PulseCurate",
+  "description": "AI-powered social news aggregator and summarizer using Gemini with Google Search Grounding, hybrid real-data pipelines, 3-layer fail-safe delivery, and 18 adaptive themes.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
