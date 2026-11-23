@@ -8,14 +8,18 @@ import type {
   TopicMood,
 } from '../src/types.ts';
 
-export const GEMINI_MODEL = 'gemini-3.8-flash';
+export const GEMINI_MODEL = 'gemini-3.5-flash-lite';
 
 export const MODEL_FALLBACK_CHAIN = [
+  'gemini-3.5-flash-lite',
+  'gemini-3.5-flash',
   'gemini-3.8-flash',
   'gemini-3.8-flash-lite',
+] as const;
+
+export const SEARCH_GROUNDED_MODELS = [
   'gemini-3.5-flash',
-  'gemini-4-hydrogen',
-  'gemini-3.1-flash-lite',
+  'gemini-3.8-flash',
 ] as const;
 
 const PRIMARY_RETRY_DELAYS_MS = [1000, 2000, 4000] as const;
@@ -185,8 +189,11 @@ async function generateContentWithResilience(
   let lastError: unknown;
   let hadRetries = false;
 
-  for (let modelIdx = 0; modelIdx < MODEL_FALLBACK_CHAIN.length; modelIdx++) {
-    const model = MODEL_FALLBACK_CHAIN[modelIdx];
+  const hasTools = Boolean(params.config?.tools && (params.config.tools as unknown[]).length > 0);
+  const modelsToTry = hasTools ? SEARCH_GROUNDED_MODELS : MODEL_FALLBACK_CHAIN;
+
+  for (let modelIdx = 0; modelIdx < modelsToTry.length; modelIdx++) {
+    const model = modelsToTry[modelIdx];
     const retryDelays = modelIdx === 0 ? PRIMARY_RETRY_DELAYS_MS : FALLBACK_RETRY_DELAYS_MS;
 
     for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
@@ -201,7 +208,7 @@ async function generateContentWithResilience(
 
         // Immediately skip to next model on 404 NOT_FOUND
         if (isModelNotFoundError(err)) {
-          const nextModel = MODEL_FALLBACK_CHAIN[modelIdx + 1];
+          const nextModel = modelsToTry[modelIdx + 1];
           if (nextModel) {
             onStatus?.({
               phase: 'fallback',
@@ -230,7 +237,7 @@ async function generateContentWithResilience(
           }
 
           // Retries exhausted on this model -> fall back to next model if available
-          const nextModel = MODEL_FALLBACK_CHAIN[modelIdx + 1];
+          const nextModel = modelsToTry[modelIdx + 1];
           if (nextModel) {
             onStatus?.({
               phase: 'fallback',
@@ -241,9 +248,38 @@ async function generateContentWithResilience(
           break;
         }
 
-        // Non-transient error (e.g., invalid input or auth failure): fail fast
+        if (hasTools) {
+          break;
+        }
+
         throw err;
       }
+    }
+  }
+
+  // Graceful fallback when search grounding quota (429/503) is exhausted:
+  // synthesize directly with gemini-3.5-flash-lite without crashing
+  if (hasTools) {
+    onStatus?.({
+      phase: 'fallback',
+      model: 'gemini-3.5-flash-lite',
+      message: 'Search grounding quota busy; synthesizing intelligence directly...',
+    });
+    try {
+      const paramsWithoutTools = {
+        ...params,
+        config: {
+          ...params.config,
+          tools: undefined,
+        },
+      };
+      const response = await ai.models.generateContent({
+        ...paramsWithoutTools,
+        model: 'gemini-3.5-flash-lite',
+      });
+      return { response, modelUsed: 'gemini-3.5-flash-lite (direct synthesis)', hadRetries: true };
+    } catch (fallbackErr) {
+      console.warn('Fallback direct synthesis error:', fallbackErr);
     }
   }
 
@@ -375,10 +411,13 @@ export async function suggestSourcesWithAI(
       ? `The user connected their ${provider || 'social'} interest profile around these topics: ${topics.join(', ')}. Use Google Search to find 8 real, verified, active public accounts/channels/subreddits across [${targetPlatforms.join(', ')}] that match these interests.`
       : `Use Google Search to find 8 real, active, verified public social accounts, YouTube channels, subreddits, or pages across [${targetPlatforms.join(', ')}] that regularly post high-signal news about: ${topics.join(', ')}.`;
 
-  const { response } = await generateContentWithResilience(
-    ai,
-    {
-      contents: `${prompt}
+  let sources: SocialSource[] = [];
+
+  try {
+    const { response } = await generateContentWithResilience(
+      ai,
+      {
+        contents: `${prompt}
 
 Return ONLY valid JSON matching this exact structure (no markdown commentary outside JSON):
 {
@@ -393,39 +432,92 @@ Return ONLY valid JSON matching this exact structure (no markdown commentary out
     }
   ]
 }`,
-      config: {
-        tools: [{ googleSearch: {} }],
-        systemInstruction:
-          'Only suggest real, well-known, currently active public accounts, subreddits, or channels verified via Google Search. Never invent handles. Output strictly valid JSON.',
+        config: {
+          tools: [{ googleSearch: {} }],
+          systemInstruction:
+            'Only suggest real, well-known, currently active public accounts, subreddits, or channels verified via Google Search. Never invent handles. Output strictly valid JSON.',
+        },
       },
-    },
-    onStatus
-  );
+      onStatus
+    );
 
-  const parsed = safeParseJson<{ sources?: Array<Partial<SocialSource>> }>(response.text, { sources: [] });
-  const allowedPlatforms = new Set<PlatformId>([
-    'youtube',
-    'reddit',
-    'x',
-    'instagram',
-    'facebook',
-    'linkedin',
-    'tiktok',
-    'threads',
-    'whatsapp',
-  ]);
+    const parsed = safeParseJson<{ sources?: Array<Partial<SocialSource>> }>(response.text, { sources: [] });
+    const allowedPlatforms = new Set<PlatformId>([
+      'youtube',
+      'reddit',
+      'x',
+      'instagram',
+      'facebook',
+      'linkedin',
+      'tiktok',
+      'threads',
+      'whatsapp',
+    ]);
 
-  return (parsed.sources || [])
-    .filter((s) => s.platform && allowedPlatforms.has(s.platform as PlatformId) && s.handle)
-    .map((s, idx) => ({
-      id: `${s.platform}-${(s.handle || '').toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}-${idx}`,
-      platform: s.platform as PlatformId,
-      handle: String(s.handle).trim(),
-      displayName: String(s.displayName || s.handle).trim(),
-      channelId: s.channelId ? String(s.channelId).trim() : undefined,
-      description: s.description ? String(s.description).trim() : undefined,
-      verified: Boolean(s.verified ?? true),
+    sources = (parsed.sources || [])
+      .filter((s) => s.platform && allowedPlatforms.has(s.platform as PlatformId) && s.handle)
+      .map((s, idx) => ({
+        id: `${s.platform}-${(s.handle || '').toLowerCase().replace(/[^a-z0-9]/g, '')}-${Date.now()}-${idx}`,
+        platform: s.platform as PlatformId,
+        handle: String(s.handle).trim(),
+        displayName: String(s.displayName || s.handle).trim(),
+        channelId: s.channelId ? String(s.channelId).trim() : undefined,
+        description: s.description ? String(s.description).trim() : undefined,
+        verified: Boolean(s.verified ?? true),
+      }));
+  } catch (err) {
+    console.warn('AI source suggestion encountered an issue; using curated high-signal recommendations:', err);
+  }
+
+  if (sources.length === 0) {
+    const CURATED_FALLBACKS: Array<{
+      platform: PlatformId;
+      handle: string;
+      displayName: string;
+      description: string;
+      topics: string[];
+    }> = [
+      { platform: 'youtube', handle: '@mkbhd', displayName: 'Marques Brownlee', description: 'Consumer tech reviews and AI insights', topics: ['tech', 'ai', 'startups'] },
+      { platform: 'youtube', handle: '@theverge', displayName: 'The Verge', description: 'Tech news, gadgets, and science', topics: ['tech', 'ai', 'gaming'] },
+      { platform: 'reddit', handle: 'r/technology', displayName: 'r/technology', description: 'Major technology news and announcements', topics: ['tech', 'ai', 'cybersecurity'] },
+      { platform: 'reddit', handle: 'r/artificial', displayName: 'r/artificial', description: 'AI research, LLMs, and robotics discussions', topics: ['tech', 'ai'] },
+      { platform: 'x', handle: '@sama', displayName: 'Sam Altman', description: 'AI updates and OpenAI announcements', topics: ['tech', 'ai', 'startups'] },
+      { platform: 'x', handle: '@OpenAI', displayName: 'OpenAI', description: 'Official OpenAI updates and research', topics: ['tech', 'ai'] },
+      { platform: 'linkedin', handle: 'company/openai', displayName: 'OpenAI', description: 'Enterprise AI and announcements', topics: ['tech', 'ai', 'startups'] },
+      { platform: 'youtube', handle: '@BBCNews', displayName: 'BBC News', description: 'Global breaking news and international analysis', topics: ['world politics', 'local news'] },
+      { platform: 'reddit', handle: 'r/worldnews', displayName: 'r/worldnews', description: 'International news from around the world', topics: ['world politics'] },
+      { platform: 'x', handle: '@Reuters', displayName: 'Reuters', description: 'Global breaking business and geopolitical news', topics: ['world politics', 'finance & crypto'] },
+      { platform: 'youtube', handle: '@Bloomberg', displayName: 'Bloomberg Television', description: 'Global finance, markets, and economic analysis', topics: ['finance & crypto', 'startups'] },
+      { platform: 'reddit', handle: 'r/wallstreetbets', displayName: 'r/wallstreetbets', description: 'Market movements, retail trading, and volatility', topics: ['finance & crypto'] },
+      { platform: 'youtube', handle: '@veritasium', displayName: 'Veritasium', description: 'An element of truth - science and engineering', topics: ['science'] },
+      { platform: 'youtube', handle: '@IGN', displayName: 'IGN', description: 'Game reviews, trailers, and industry news', topics: ['gaming', 'entertainment'] },
+      { platform: 'reddit', handle: 'r/gaming', displayName: 'r/gaming', description: 'Trending video games and community news', topics: ['gaming'] },
+      { platform: 'reddit', handle: 'r/netsec', displayName: 'r/netsec', description: 'Information security research and vulnerabilities', topics: ['cybersecurity'] },
+      { platform: 'x', handle: '@briankrebs', displayName: 'Brian Krebs', description: 'In-depth security journalism and investigation', topics: ['cybersecurity'] },
+      { platform: 'youtube', handle: '@ESPN', displayName: 'ESPN', description: 'Sports highlights and analysis', topics: ['sports'] },
+      { platform: 'reddit', handle: 'r/sports', displayName: 'r/sports', description: 'Live sports and tournament coverage', topics: ['sports'] },
+    ];
+
+    const lowerTopics = topics.map((t) => t.toLowerCase());
+    const matched = CURATED_FALLBACKS.filter((cand) => {
+      const platformOk = targetPlatforms.includes(cand.platform);
+      const topicOk = cand.topics.some((ct) => lowerTopics.some((lt) => lt.includes(ct) || ct.includes(lt)));
+      return platformOk && (topicOk || lowerTopics.length === 0);
+    });
+
+    const fallbackList = matched.length >= 3 ? matched : CURATED_FALLBACKS.filter((c) => targetPlatforms.includes(c.platform));
+
+    sources = fallbackList.slice(0, 8).map((cand, idx) => ({
+      id: `${cand.platform}-${cand.handle.replace(/[^a-z0-9]/gi, '')}-${Date.now()}-${idx}`,
+      platform: cand.platform,
+      handle: cand.handle,
+      displayName: cand.displayName,
+      description: cand.description,
+      verified: true,
     }));
+  }
+
+  return sources;
 }
 
 function buildSiteScopedQuery(source: SocialSource): string {

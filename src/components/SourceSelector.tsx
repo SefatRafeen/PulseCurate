@@ -17,6 +17,11 @@ const OAUTH_PROVIDERS: Array<{ id: PlatformId; label: string; desc: string }> = 
   { id: 'reddit', label: 'Reddit Communities', desc: 'Import high-signal subreddits matching your interests' },
   { id: 'x', label: 'X (Twitter) Following', desc: 'Import journalists, researchers, and builders' },
   { id: 'linkedin', label: 'LinkedIn Voices', desc: 'Import industry leaders and company pages' },
+  { id: 'instagram', label: 'Instagram Following', desc: 'Import verified news publications and creators' },
+  { id: 'facebook', label: 'Facebook Pages', desc: 'Import official news agencies and topic pages' },
+  { id: 'threads', label: 'Threads Following', desc: 'Import real-time commentary and thought leaders' },
+  { id: 'tiktok', label: 'TikTok Followed Creators', desc: 'Import short-form news explainers and analysts' },
+  { id: 'whatsapp', label: 'WhatsApp Channels', desc: 'Import public broadcast channels and topic digests' },
 ];
 
 export const SourceSelector: React.FC<SourceSelectorProps> = ({
@@ -166,9 +171,23 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
           <span className="text-sm font-semibold text-[var(--pc-text)]">
             Select Platform (9 Supported)
           </span>
-          <span className="text-xs text-[var(--pc-text-muted)]">
-            Pipeline: {activePlatformInfo.pipelineLabel}
-          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => {
+                setImportProvider(selectedPlatform);
+                setShowImportModal(true);
+                handleQuickImportConnect(selectedPlatform);
+              }}
+              className="px-2.5 py-1 rounded-lg text-xs font-medium border border-[var(--pc-accent)]/40 bg-[var(--pc-accent-soft)] text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-1.5 transition-all cursor-pointer"
+            >
+              <DownloadCloud className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
+              Connect {activePlatformInfo.name} (OAuth)
+            </button>
+            <span className="text-xs text-[var(--pc-text-muted)] hidden sm:inline">
+              {activePlatformInfo.pipelineLabel}
+            </span>
+          </div>
         </div>
 
         <div className={`grid gap-2 ${compact ? 'grid-cols-3' : 'grid-cols-3 sm:grid-cols-5 lg:grid-cols-9'}`}>
@@ -213,7 +232,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
               type="text"
               value={handleInput}
               onChange={(e) => setHandleInput(e.target.value)}
-              placeholder={`Add ${activePlatformInfo.name}: e.g. ${activePlatformInfo.placeholder}`}
+              placeholder={`Search channel, page, subreddit, or handle... e.g. ${activePlatformInfo.placeholder}`}
               className="w-full min-h-[44px] pl-10 pr-3.5 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
             />
           </div>
@@ -243,7 +262,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
             ) : (
               <Sparkles className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
             )}
-            Auto-Suggest Real Channels
+            Quick Fill Recommended Sources
           </button>
 
           <button
@@ -252,7 +271,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
             className="min-h-[40px] px-3.5 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] text-xs font-medium text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] hover:border-[var(--pc-text-muted)]/50 flex items-center gap-2 transition-colors cursor-pointer"
           >
             <DownloadCloud className="w-3.5 h-3.5" />
-            Quick Import via Account Interests
+            Connect Account (OAuth)
           </button>
         </div>
 
