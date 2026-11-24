@@ -101,28 +101,30 @@ export const Dashboard: React.FC<DashboardProps> = ({
   const countdownStr = formatCountdown(settings.nextScheduledTimestamp, nowMs);
 
   return (
-    <div className="min-h-dvh bg-[var(--pc-bg)] text-[var(--pc-text)] flex flex-col">
-      {/* Top Status & Navigation Bar */}
-      <header className="sticky top-0 z-30 border-b border-[var(--pc-border)] bg-[var(--pc-bg)]/92 backdrop-blur-md">
+    <div className="min-h-dvh bg-transparent text-[var(--pc-text)] flex flex-col">
+      {/* Top Status & Navigation Bar (Apple Liquid Glass) */}
+      <header className="sticky top-0 z-30 liquid-glass-header">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4 sm:gap-8">
           {/* Brand Zone (single line) */}
           <div className="flex items-center gap-2.5 whitespace-nowrap shrink-0">
-            <PulseLogoMark className="w-6 h-6 text-[var(--pc-accent)]" />
+            <div className="p-1.5 rounded-full liquid-glass flex items-center justify-center">
+              <PulseLogoMark className="w-5 h-5 text-[var(--pc-accent)]" />
+            </div>
             <span className="font-display text-lg font-bold tracking-tight">PulseCurate</span>
           </div>
 
-          {/* Active Topic Quick Filters (Desktop center) */}
+          {/* Active Topic Quick Filters (Desktop center - Liquid Pills) */}
           <nav
             aria-label="Active topics"
-            className="hidden lg:flex items-center gap-4 text-xs font-medium text-[var(--pc-text-muted)] overflow-x-auto no-scrollbar"
+            className="hidden lg:flex items-center gap-2 text-xs font-medium overflow-x-auto no-scrollbar"
           >
             <button
               type="button"
               onClick={() => setFilterTopic('all')}
-              className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+              className={`min-h-[34px] px-3.5 py-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                 filterTopic === 'all'
-                  ? 'text-[var(--pc-text)] underline underline-offset-4 decoration-[var(--pc-accent)]'
-                  : 'hover:text-[var(--pc-text)]'
+                  ? 'liquid-pill-active'
+                  : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
               }`}
             >
               All Topics
@@ -134,10 +136,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onClick={() =>
                   setFilterTopic((curr) => (curr === topic.label ? 'all' : topic.label))
                 }
-                className={`whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                className={`min-h-[34px] px-3.5 py-1.5 whitespace-nowrap shrink-0 cursor-pointer ${
                   filterTopic.toLowerCase() === topic.label.toLowerCase()
-                    ? 'text-[var(--pc-text)] underline underline-offset-4 decoration-[var(--pc-accent)]'
-                    : 'hover:text-[var(--pc-text)]'
+                    ? 'liquid-pill-active'
+                    : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                 }`}
               >
                 {topic.label}
@@ -145,9 +147,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
             ))}
           </nav>
 
-          {/* Primary Actions Zone */}
+          {/* Primary Actions Zone (Liquid Controls) */}
           <div className="flex items-center gap-2.5 shrink-0">
-            <div className="hidden md:flex items-center gap-2 text-xs text-[var(--pc-text-muted)] whitespace-nowrap mr-1">
+            <div className="hidden md:flex items-center gap-2 text-xs text-[var(--pc-text-muted)] whitespace-nowrap mr-1 liquid-pill px-3 py-1.5">
               <Clock className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
               <span>Next: {nextScheduleLabel}</span>
               <span className="font-mono-tabular text-[var(--pc-text)]">({countdownStr})</span>
@@ -157,11 +159,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               type="button"
               onClick={() => onRefreshNow()}
               disabled={isLoading || !isOnline}
-              className="min-h-[40px] sm:min-h-[40px] px-3.5 py-2 rounded-xl text-xs font-semibold flex items-center gap-2 whitespace-nowrap shrink-0 disabled:opacity-50 cursor-pointer transition-opacity"
-              style={{
-                backgroundColor: 'var(--pc-accent)',
-                color: 'var(--pc-accent-fg)',
-              }}
+              className="liquid-btn-primary min-h-[40px] px-4 py-2 text-xs font-semibold flex items-center gap-2 whitespace-nowrap shrink-0 disabled:opacity-50 cursor-pointer"
             >
               <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? 'animate-spin' : ''}`} />
               <span className="hidden sm:inline">
@@ -174,7 +172,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               type="button"
               onClick={onOpenSettings}
               aria-label="Open Settings"
-              className="min-w-[44px] min-h-[44px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] flex items-center justify-center text-[var(--pc-text)] hover:border-[var(--pc-accent)] transition-colors shrink-0 cursor-pointer"
+              className="liquid-pill min-w-[42px] min-h-[42px] flex items-center justify-center text-[var(--pc-text)] hover:border-[var(--pc-accent)] transition-colors shrink-0 cursor-pointer"
             >
               <Settings className="w-4 h-4" />
             </button>
@@ -187,7 +185,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* Offline Indicator */}
         {!isOnline && (
           <div
-            className="rounded-xl border border-[var(--pc-warning)]/50 bg-[var(--pc-surface)] px-4 py-3 flex items-center gap-3 text-xs text-[var(--pc-text)]"
+            className="liquid-glass rounded-2xl px-4 py-3 flex items-center gap-3 text-xs text-[var(--pc-text)] border-[var(--pc-warning)]/50"
             role="status"
           >
             <WifiOff className="w-4 h-4 text-[var(--pc-warning)] shrink-0" />
@@ -197,8 +195,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {/* Workspace Status & 3-Layer Delivery Summary Strip */}
-        <section className="rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] px-4 py-3.5 flex flex-wrap items-center justify-between gap-4">
+        {/* Workspace Status & 3-Layer Delivery Summary Strip (Liquid Glass) */}
+        <section className="liquid-glass rounded-3xl px-5 py-4 flex flex-wrap items-center justify-between gap-4">
           <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs">
             <div className="flex items-center gap-1.5">
               <Bell
@@ -261,7 +259,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button
                 type="button"
                 onClick={install}
-                className="min-h-[36px] px-3 py-1.5 rounded-lg border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-1.5 cursor-pointer"
+                className="liquid-pill min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
                 Install App
@@ -272,7 +270,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               <button
                 type="button"
                 onClick={() => setShowIOSInstall(true)}
-                className="min-h-[36px] px-3 py-1.5 rounded-lg border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-medium text-[var(--pc-text)] flex items-center gap-1.5 cursor-pointer"
+                className="liquid-pill min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-[var(--pc-text)] flex items-center gap-1.5 cursor-pointer"
               >
                 <Download className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
                 Install on iOS
@@ -281,18 +279,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </section>
 
-        {/* Filter Bar: Platform Tabs + Topic Tabs + Search */}
+        {/* Filter Bar: Platform Tabs + Topic Tabs + Search (Liquid Pills & Inputs) */}
         <section className="space-y-3">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
             {/* Platform Filter Segmented Tabs */}
-            <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+            <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
               <button
                 type="button"
                 onClick={() => setFilterPlatform('all')}
-                className={`min-h-[40px] px-3.5 py-1.5 rounded-xl border text-xs font-medium whitespace-nowrap shrink-0 transition-colors cursor-pointer ${
+                className={`min-h-[38px] px-4 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                   filterPlatform === 'all'
-                    ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                    : 'border-[var(--pc-border)] bg-[var(--pc-surface)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
+                    ? 'liquid-pill-active'
+                    : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                 }`}
               >
                 All ({items.length})
@@ -307,10 +305,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     key={pid}
                     type="button"
                     onClick={() => setFilterPlatform(pid)}
-                    className={`min-h-[40px] px-3.5 py-1.5 rounded-xl border text-xs font-medium whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-colors cursor-pointer ${
+                    className={`min-h-[38px] px-3.5 py-1.5 text-xs font-medium whitespace-nowrap shrink-0 flex items-center gap-1.5 transition-all cursor-pointer ${
                       active
-                        ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                        : 'border-[var(--pc-border)] bg-[var(--pc-surface)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
+                        ? 'liquid-pill-active'
+                        : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                     }`}
                   >
                     <span style={{ color: pInfo.accentHex }}>
@@ -323,7 +321,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
               })}
             </div>
 
-            {/* Search Input */}
+            {/* Tactile Liquid Search Input */}
             <div className="relative w-full md:w-72 shrink-0">
               <Search className="w-4 h-4 text-[var(--pc-text-muted)] absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -331,20 +329,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Filter headlines or accounts..."
-                className="w-full min-h-[42px] pl-10 pr-3.5 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] text-xs text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
+                className="liquid-input w-full min-h-[42px] pl-10 pr-4 text-xs text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
               />
             </div>
           </div>
 
           {/* Mobile & Tablet Topic Filter Strip */}
-          <div className="flex lg:hidden items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+          <div className="flex lg:hidden items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
             <button
               type="button"
               onClick={() => setFilterTopic('all')}
-              className={`min-h-[36px] px-3 py-1 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
+              className={`min-h-[34px] px-3 py-1 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
                 filterTopic === 'all'
-                  ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                  : 'border-[var(--pc-border)] bg-[var(--pc-surface)] text-[var(--pc-text-muted)]'
+                  ? 'liquid-pill-active'
+                  : 'liquid-pill text-[var(--pc-text-muted)]'
               }`}
             >
               All Topics
@@ -356,10 +354,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 onClick={() =>
                   setFilterTopic((curr) => (curr === topic.label ? 'all' : topic.label))
                 }
-                className={`min-h-[36px] px-3 py-1 rounded-lg border text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[34px] px-3 py-1 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
                   filterTopic.toLowerCase() === topic.label.toLowerCase()
-                    ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                    : 'border-[var(--pc-border)] bg-[var(--pc-surface)] text-[var(--pc-text-muted)]'
+                    ? 'liquid-pill-active'
+                    : 'liquid-pill text-[var(--pc-text-muted)]'
                 }`}
               >
                 {topic.label}
@@ -368,9 +366,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         </section>
 
-        {/* Source Fallback Diagnostics Notice */}
+        {/* Source Fallback Diagnostics Notice (Liquid Glass) */}
         {emptyOrErrorSources.length > 0 && !isLoading && (
-          <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] px-4 py-3 text-xs">
+          <div className="liquid-glass rounded-2xl px-4 py-3 text-xs">
             <div className="flex items-center justify-between gap-3">
               <div className="flex items-center gap-2 text-[var(--pc-text-muted)]">
                 <AlertCircle className="w-4 h-4 text-[var(--pc-warning)] shrink-0" />
@@ -402,10 +400,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {/* Subtle Retry / Fallback Status Banner */}
+        {/* Subtle Retry / Fallback Status Banner (Liquid Glass) */}
         {isLoading && retryStatus && (
           <div
-            className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] px-4 py-3 text-xs text-[var(--pc-text-muted)] flex items-center gap-2.5"
+            className="liquid-glass rounded-2xl px-4 py-3 text-xs text-[var(--pc-text-muted)] flex items-center gap-2.5"
             role="status"
             aria-live="polite"
           >
@@ -414,10 +412,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {/* API Error Alert */}
+        {/* API Error Alert (Liquid Glass) */}
         {error && (
           <div
-            className="rounded-xl border border-[var(--pc-warning)]/45 bg-[var(--pc-surface)] px-4 py-3 text-xs sm:text-sm text-[var(--pc-text)] flex items-center justify-between gap-4"
+            className="liquid-glass rounded-2xl px-4 py-3 text-xs sm:text-sm text-[var(--pc-text)] border-[var(--pc-warning)]/45 flex items-center justify-between gap-4"
             role="alert"
           >
             <div className="flex items-center gap-2.5 min-w-0">
@@ -427,38 +425,38 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <button
               type="button"
               onClick={() => onRefreshNow()}
-              className="px-3 py-1.5 rounded-lg border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] whitespace-nowrap shrink-0 cursor-pointer"
+              className="liquid-pill min-h-[36px] px-3.5 py-1.5 text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] whitespace-nowrap shrink-0 cursor-pointer"
             >
               Retry
             </button>
           </div>
         )}
 
-        {/* Skeleton Loading UI */}
+        {/* Skeleton Loading UI (Liquid Glass Cards) */}
         {isLoading && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5" aria-busy="true">
             {Array.from({ length: 6 }).map((_, idx) => (
               <div
                 key={idx}
-                className="rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-5 space-y-4 animate-pulse"
+                className="liquid-glass-card rounded-3xl p-5 space-y-4 animate-pulse"
               >
-                <div className="h-3.5 w-2/3 rounded bg-[var(--pc-surface-elevated)]" />
+                <div className="h-3.5 w-2/3 rounded-full bg-[var(--pc-surface-elevated)]" />
                 <div className="space-y-2">
-                  <div className="h-5 w-full rounded bg-[var(--pc-surface-elevated)]" />
-                  <div className="h-5 w-4/5 rounded bg-[var(--pc-surface-elevated)]" />
+                  <div className="h-5 w-full rounded-lg bg-[var(--pc-surface-elevated)]" />
+                  <div className="h-5 w-4/5 rounded-lg bg-[var(--pc-surface-elevated)]" />
                 </div>
                 <div className="space-y-2 pt-2">
                   <div className="h-3 w-full rounded bg-[var(--pc-surface-elevated)]" />
                   <div className="h-3 w-5/6 rounded bg-[var(--pc-surface-elevated)]" />
                   <div className="h-3 w-4/6 rounded bg-[var(--pc-surface-elevated)]" />
                 </div>
-                <div className="h-4 w-1/2 rounded bg-[var(--pc-surface-elevated)] pt-2" />
+                <div className="h-4 w-1/2 rounded-full bg-[var(--pc-surface-elevated)] pt-2" />
               </div>
             ))}
           </div>
         )}
 
-        {/* Summarized News Feed Grid */}
+        {/* Summarized News Feed Grid (Apple Liquid Glass Cards) */}
         {!isLoading && filteredItems.length > 0 && (
           <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-5">
             {filteredItems.map((item, idx) => {
@@ -473,16 +471,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
               return (
                 <motion.article
                   key={item.id}
-                  initial={{ opacity: 0, y: 10 }}
+                  initial={{ opacity: 0, y: 12 }}
                   animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.22, delay: Math.min(idx * 0.03, 0.25) }}
-                  className="rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-5 flex flex-col justify-between gap-4 hover:border-[var(--pc-accent)]/45 transition-colors"
+                  transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.25) }}
+                  className="liquid-glass-card rounded-3xl p-5 sm:p-6 flex flex-col justify-between gap-4 cursor-default"
                 >
                   <div className="space-y-3">
                     {/* Unboxed Metadata Line (Zero-Pill Discipline) */}
                     <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-[var(--pc-text-muted)]">
                       <span
-                        className="inline-flex items-center gap-1.5 font-medium text-[var(--pc-text)]"
+                        className="inline-flex items-center gap-1.5 font-semibold text-[var(--pc-text)]"
                       >
                         <span style={{ color: pInfo.accentHex }}>
                           <PlatformIcon platform={item.platform} className="w-3.5 h-3.5" />
@@ -509,7 +507,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </div>
 
                   {/* Card Footer: Urgency/Sentiment + View Source Link */}
-                  <div className="pt-3 border-t border-[var(--pc-border)] flex items-center justify-between gap-3 text-xs">
+                  <div className="pt-3 border-t border-[var(--pc-border)]/60 flex items-center justify-between gap-3 text-xs">
                     <div className="flex items-center gap-2 font-medium text-[var(--pc-text-muted)]">
                       <span className="inline-flex items-center gap-1" style={{ color: urgencyColor }}>
                         {item.urgency === 'High' ? (
@@ -539,9 +537,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
           </div>
         )}
 
-        {/* Empty State */}
+        {/* Empty State (Liquid Glass) */}
         {!isLoading && filteredItems.length === 0 && (
-          <div className="rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-8 sm:p-12 text-center space-y-4">
+          <div className="liquid-glass rounded-3xl p-8 sm:p-12 text-center space-y-4">
             <h3 className="font-display text-lg font-semibold text-[var(--pc-text)]">
               No summarized stories match this view
             </h3>
@@ -559,7 +557,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     setFilterTopic('all');
                     setSearchQuery('');
                   }}
-                  className="min-h-[42px] px-4 py-2 rounded-xl border border-[var(--pc-border)] text-xs font-semibold text-[var(--pc-text)] cursor-pointer"
+                  className="liquid-pill min-h-[42px] px-4 py-2 text-xs font-semibold text-[var(--pc-text)] cursor-pointer"
                 >
                   Clear Filters
                 </button>
@@ -568,11 +566,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 type="button"
                 onClick={() => onRefreshNow()}
                 disabled={!isOnline}
-                className="min-h-[42px] px-4 py-2 rounded-xl text-xs font-semibold cursor-pointer"
-                style={{
-                  backgroundColor: 'var(--pc-accent)',
-                  color: 'var(--pc-accent-fg)',
-                }}
+                className="liquid-btn-primary min-h-[42px] px-5 py-2 text-xs font-semibold cursor-pointer"
               >
                 Refresh &amp; Summarize Now
               </button>
@@ -581,14 +575,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
         )}
       </main>
 
-      {/* iOS Safari Install Guide Modal */}
+      {/* iOS Safari Install Guide Modal (Apple Liquid Glass Modal) */}
       {showIOSInstall && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
           role="dialog"
           aria-modal="true"
         >
-          <div className="w-full max-w-sm rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-6 space-y-4 shadow-xl">
+          <div className="w-full max-w-sm rounded-3xl liquid-glass-modal p-6 space-y-4 shadow-2xl">
             <h3 className="font-display text-lg font-bold text-[var(--pc-text)]">
               Install PulseCurate on iOS
             </h3>
@@ -600,11 +594,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <button
               type="button"
               onClick={() => setShowIOSInstall(false)}
-              className="w-full min-h-[44px] rounded-xl text-sm font-semibold cursor-pointer"
-              style={{
-                backgroundColor: 'var(--pc-accent)',
-                color: 'var(--pc-accent-fg)',
-              }}
+              className="liquid-btn-primary w-full min-h-[44px] text-sm font-semibold cursor-pointer"
             >
               Done
             </button>

@@ -178,15 +178,15 @@ jobs:
 
   return (
     <div className="space-y-6">
-      {/* Frequency & Time Picker */}
-      <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-4 sm:p-5 space-y-5">
+      {/* Frequency & Time Picker (Liquid Glass) */}
+      <div className="liquid-glass rounded-3xl p-5 sm:p-6 space-y-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
           <Clock className="w-4 h-4 text-[var(--pc-accent)]" />
           <span>Update Frequency &amp; Schedule</span>
         </div>
 
-        {/* Frequency Tabs */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+        {/* Frequency Tabs (Liquid Pills) */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
           {(
             [
               { id: 'daily', label: 'Daily' },
@@ -201,10 +201,10 @@ jobs:
                 key={freq.id}
                 type="button"
                 onClick={() => update({ frequency: freq.id })}
-                className={`min-h-[44px] px-3 py-2 rounded-xl border text-xs font-medium transition-all whitespace-nowrap cursor-pointer ${
+                className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                   active
-                    ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                    : 'border-[var(--pc-border)] bg-[var(--pc-bg)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
+                    ? 'liquid-pill-active'
+                    : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                 }`}
               >
                 {freq.label}
@@ -213,7 +213,7 @@ jobs:
           })}
         </div>
 
-        {/* Weekly Day Checkboxes */}
+        {/* Weekly Day Checkboxes (Liquid Pills) */}
         {schedule.frequency === 'weekly' && (
           <div className="space-y-2">
             <span className="text-xs font-medium text-[var(--pc-text-muted)]">Select Days</span>
@@ -225,10 +225,10 @@ jobs:
                     key={day}
                     type="button"
                     onClick={() => toggleWeekday(day)}
-                    className={`min-h-[40px] min-w-[48px] px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors cursor-pointer ${
+                    className={`min-h-[40px] min-w-[52px] px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                       active
-                        ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                        : 'border-[var(--pc-border)] bg-[var(--pc-bg)] text-[var(--pc-text-muted)]'
+                        ? 'liquid-pill-active'
+                        : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                     }`}
                   >
                     {day}
@@ -310,7 +310,7 @@ jobs:
               <span className="block text-xs font-medium text-[var(--pc-text-muted)] mb-2">
                 Time Presets
               </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
                 {TIME_PRESETS.map((preset) => {
                   const active = schedule.time === preset.time;
                   return (
@@ -318,10 +318,10 @@ jobs:
                       key={preset.time}
                       type="button"
                       onClick={() => update({ time: preset.time })}
-                      className={`min-h-[42px] px-3 py-2 rounded-xl border text-left transition-all cursor-pointer ${
+                      className={`min-h-[44px] px-3.5 py-2 text-left transition-all cursor-pointer ${
                         active
-                          ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                          : 'border-[var(--pc-border)] bg-[var(--pc-bg)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
+                          ? 'liquid-pill-active'
+                          : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                       }`}
                     >
                       <div className="text-xs font-semibold">{preset.label}</div>
@@ -347,7 +347,7 @@ jobs:
                   type="time"
                   value={schedule.time}
                   onChange={(e) => update({ time: e.target.value })}
-                  className="w-full min-h-[44px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3.5 text-sm font-mono-tabular text-[var(--pc-text)] focus:outline-none focus:border-[var(--pc-accent)]"
+                  className="liquid-input w-full min-h-[44px] px-4 text-sm font-mono-tabular text-[var(--pc-text)]"
                 />
               </div>
             )}
@@ -363,21 +363,21 @@ jobs:
                 type="date"
                 value={schedule.startDate}
                 onChange={(e) => update({ startDate: e.target.value })}
-                className="w-full min-h-[44px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3.5 text-sm font-mono-tabular text-[var(--pc-text)] focus:outline-none focus:border-[var(--pc-accent)]"
+                className="liquid-input w-full min-h-[44px] px-4 text-sm font-mono-tabular text-[var(--pc-text)]"
               />
             </div>
           </div>
         </div>
       </div>
 
-      {/* 3-Layer Fail-Safe Delivery System */}
-      <div className="space-y-3">
+      {/* 3-Layer Fail-Safe Delivery System (Liquid Glass) */}
+      <div className="space-y-4">
         <h3 className="text-sm font-semibold text-[var(--pc-text)]">
           3-Layer Fail-Safe Delivery System
         </h3>
 
         {/* Layer 1: Browser Push Notification */}
-        <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="liquid-glass rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
               <Bell className="w-4 h-4 text-[var(--pc-accent)]" />
@@ -395,7 +395,7 @@ jobs:
           <button
             type="button"
             onClick={requestPushPermission}
-            className="min-h-[44px] px-4 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] whitespace-nowrap shrink-0 cursor-pointer"
+            className="liquid-pill min-h-[44px] px-4 py-2 text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] whitespace-nowrap shrink-0 cursor-pointer"
           >
             {notifStatus === 'granted' && schedule.pushEnabled
               ? 'Push Active (Send Test)'
@@ -404,7 +404,7 @@ jobs:
         </div>
 
         {/* Layer 2: Personal Email Digest */}
-        <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-4 space-y-3.5">
+        <div className="liquid-glass rounded-3xl p-5 space-y-4">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
@@ -426,7 +426,7 @@ jobs:
             </label>
           </div>
 
-          <div className="rounded-lg border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3 py-2 flex items-center gap-2 text-xs">
+          <div className="liquid-pill px-4 py-2.5 flex items-center gap-2 text-xs">
             <Info
               className="w-3.5 h-3.5 shrink-0"
               style={{ color: isEmailConfigured ? 'var(--pc-success)' : 'var(--pc-text-muted)' }}
@@ -459,7 +459,7 @@ jobs:
                 value={schedule.emailAddress}
                 onChange={(e) => update({ emailAddress: e.target.value })}
                 placeholder="you@domain.com"
-                className="w-full min-h-[44px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3.5 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
+                className="liquid-input w-full min-h-[44px] px-4 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
               />
             </div>
             <div>
@@ -475,7 +475,7 @@ jobs:
                 value={schedule.webhookUrl}
                 onChange={(e) => update({ webhookUrl: e.target.value })}
                 placeholder="https://hook.your-mailer.com/..."
-                className="w-full min-h-[44px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3.5 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
+                className="liquid-input w-full min-h-[44px] px-4 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
               />
             </div>
           </div>
@@ -485,7 +485,7 @@ jobs:
               type="button"
               onClick={handleSendTestEmail}
               disabled={isSendingTest}
-              className="min-h-[42px] px-4 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-2 disabled:opacity-50 cursor-pointer"
+              className="liquid-btn-primary min-h-[42px] px-4 py-2 text-xs font-semibold flex items-center gap-2 disabled:opacity-50 cursor-pointer"
             >
               {isSendingTest ? (
                 <Loader2 className="w-3.5 h-3.5 animate-spin" />
@@ -498,7 +498,7 @@ jobs:
             <button
               type="button"
               onClick={() => setShowCronSnippet((v) => !v)}
-              className="min-h-[42px] px-3.5 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] text-xs font-medium text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] flex items-center gap-2 cursor-pointer"
+              className="liquid-pill min-h-[42px] px-4 py-2 text-xs font-medium text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] flex items-center gap-2 cursor-pointer"
             >
               <Code2 className="w-3.5 h-3.5" />
               {showCronSnippet ? 'Hide' : 'Show'} /api/cron-digest &amp; Cron Config
@@ -507,10 +507,10 @@ jobs:
 
           {emailFeedback && (
             <div
-              className={`rounded-xl border p-3 text-xs space-y-2 ${
+              className={`liquid-glass rounded-2xl p-3.5 text-xs space-y-2 ${
                 emailFeedback.type === 'error'
                   ? 'border-[var(--pc-danger)]/50 text-[var(--pc-danger)]'
-                  : 'border-[var(--pc-border)] text-[var(--pc-text)] bg-[var(--pc-bg)]'
+                  : 'text-[var(--pc-text)]'
               }`}
             >
               <p>{emailFeedback.text}</p>
@@ -518,7 +518,7 @@ jobs:
           )}
 
           {showCronSnippet && (
-            <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] p-3.5 space-y-3 text-xs">
+            <div className="liquid-glass rounded-2xl p-4 space-y-3 text-xs">
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold text-[var(--pc-text)]">
                   Endpoint: <code className="font-mono-tabular text-[var(--pc-accent)]">{appOrigin}/api/cron-digest</code>
@@ -526,7 +526,7 @@ jobs:
                 <button
                   type="button"
                   onClick={() => copyText('endpoint', `${appOrigin}/api/cron-digest`)}
-                  className="px-2.5 py-1 rounded-lg border border-[var(--pc-border)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] flex items-center gap-1 cursor-pointer"
+                  className="liquid-pill px-3 py-1 text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] flex items-center gap-1 cursor-pointer"
                 >
                   {copiedKey === 'endpoint' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
                   Copy URL
@@ -545,7 +545,7 @@ jobs:
                     Copy
                   </button>
                 </div>
-                <pre className="p-2.5 rounded-lg bg-[var(--pc-surface)] border border-[var(--pc-border)] overflow-x-auto font-mono-tabular text-[11px] text-[var(--pc-text)]">
+                <pre className="p-3 rounded-2xl liquid-glass overflow-x-auto font-mono-tabular text-[11px] text-[var(--pc-text)]">
                   {vercelCronSnippet}
                 </pre>
               </div>
@@ -562,7 +562,7 @@ jobs:
                     Copy
                   </button>
                 </div>
-                <pre className="p-2.5 rounded-lg bg-[var(--pc-surface)] border border-[var(--pc-border)] overflow-x-auto font-mono-tabular text-[11px] text-[var(--pc-text)]">
+                <pre className="p-3 rounded-2xl liquid-glass overflow-x-auto font-mono-tabular text-[11px] text-[var(--pc-text)]">
                   {githubActionSnippet}
                 </pre>
               </div>
@@ -570,8 +570,8 @@ jobs:
           )}
         </div>
 
-        {/* Layer 3: Guaranteed On-Open Auto-Sync */}
-        <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-4 flex items-center justify-between gap-4">
+        {/* Layer 3: Guaranteed On-Open Auto-Sync (Liquid Glass) */}
+        <div className="liquid-glass rounded-3xl p-5 flex items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
               <RefreshCw className="w-4 h-4 text-[var(--pc-success)]" />

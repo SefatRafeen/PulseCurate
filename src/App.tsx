@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { AmbientBackdrop } from './components/AmbientBackdrop.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
 import { OnboardingWizard } from './components/OnboardingWizard.tsx';
 import { SettingsDrawer } from './components/SettingsDrawer.tsx';
@@ -309,41 +310,49 @@ export default function App() {
 
   if (!settings.onboardingComplete) {
     return (
-      <OnboardingWizard
-        initialTopics={settings.topics}
-        initialSources={settings.sources}
-        initialSchedule={settings.schedule}
-        onComplete={handleOnboardingComplete}
-      />
+      <div className="relative min-h-dvh">
+        <AmbientBackdrop />
+        <div className="relative z-10">
+          <OnboardingWizard
+            initialTopics={settings.topics}
+            initialSources={settings.sources}
+            initialSchedule={settings.schedule}
+            onComplete={handleOnboardingComplete}
+          />
+        </div>
+      </div>
     );
   }
 
   return (
-    <>
-      <Dashboard
-        settings={settings}
-        items={items}
-        sourceStatuses={sourceStatuses}
-        filteredOutCount={filteredOutCount}
-        isLoading={isLoading}
-        retryStatus={retryStatus}
-        error={error}
-        nowMs={nowMs}
-        serverResendConfigured={serverResendConfigured}
-        onRefreshNow={() => refreshFeed(settings)}
-        onOpenSettings={() => setSettingsOpen(true)}
-      />
+    <div className="relative min-h-dvh">
+      <AmbientBackdrop />
+      <div className="relative z-10">
+        <Dashboard
+          settings={settings}
+          items={items}
+          sourceStatuses={sourceStatuses}
+          filteredOutCount={filteredOutCount}
+          isLoading={isLoading}
+          retryStatus={retryStatus}
+          error={error}
+          nowMs={nowMs}
+          serverResendConfigured={serverResendConfigured}
+          onRefreshNow={() => refreshFeed(settings)}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
 
-      <SettingsDrawer
-        isOpen={settingsOpen}
-        onClose={() => setSettingsOpen(false)}
-        settings={settings}
-        feedItems={items}
-        onThemeChange={handleThemeChange}
-        onAutoAdaptiveToggle={handleAutoAdaptiveToggle}
-        onSaveAndRefresh={handleSaveAndRefresh}
-        onRestartOnboarding={handleRestartOnboarding}
-      />
-    </>
+        <SettingsDrawer
+          isOpen={settingsOpen}
+          onClose={() => setSettingsOpen(false)}
+          settings={settings}
+          feedItems={items}
+          onThemeChange={handleThemeChange}
+          onAutoAdaptiveToggle={handleAutoAdaptiveToggle}
+          onSaveAndRefresh={handleSaveAndRefresh}
+          onRestartOnboarding={handleRestartOnboarding}
+        />
+      </div>
+    </div>
   );
 }

@@ -299,7 +299,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                 setShowImportModal(true);
                 handleQuickImportConnect(selectedPlatform);
               }}
-              className="px-2.5 py-1 rounded-lg text-xs font-medium border border-[var(--pc-accent)]/40 bg-[var(--pc-accent-soft)] text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-1.5 transition-all cursor-pointer"
+              className="liquid-pill px-3 py-1.5 text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-1.5 transition-all cursor-pointer"
             >
               <DownloadCloud className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
               Connect {activePlatformInfo.name} (OAuth)
@@ -319,10 +319,10 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                 key={p.id}
                 type="button"
                 onClick={() => setSelectedPlatform(p.id)}
-                className={`min-h-[44px] px-2.5 py-2 rounded-xl border text-xs font-medium flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 cursor-pointer ${
+                className={`min-h-[44px] px-2.5 py-2 text-xs font-medium flex items-center justify-center gap-1.5 transition-all whitespace-nowrap shrink-0 cursor-pointer ${
                   active
-                    ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                    : 'border-[var(--pc-border)] bg-[var(--pc-surface)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
+                    ? 'liquid-pill-active'
+                    : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                 }`}
               >
                 <span style={{ color: active ? p.accentHex : undefined }}>
@@ -338,8 +338,8 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
         </div>
       </div>
 
-      {/* Add Handle Bar + AI Actions */}
-      <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-4 space-y-3">
+      {/* Add Handle Bar + AI Actions (Liquid Glass) */}
+      <div className="liquid-glass rounded-3xl p-4 sm:p-5 space-y-3">
         <form onSubmit={handleManualAdd} className="flex flex-col sm:flex-row gap-2.5">
           <div ref={searchBoxRef} className="flex-1 relative">
             <div className="relative flex items-center">
@@ -360,7 +360,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                 onFocus={() => setIsDropdownOpen(true)}
                 onKeyDown={handleKeyDown}
                 placeholder={`Search ${activePlatformInfo.name} channel, page, or handle... e.g. ${activePlatformInfo.placeholder}`}
-                className="w-full min-h-[44px] pl-10 pr-9 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
+                className="liquid-input w-full min-h-[44px] pl-10 pr-9 py-2 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
                 autoComplete="off"
                 aria-label={`Search ${activePlatformInfo.name} channels and handles`}
                 aria-expanded={isDropdownOpen}
@@ -373,7 +373,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                     setHighlightedIndex(-1);
                     inputRef.current?.focus();
                   }}
-                  className="absolute right-3 p-1 rounded-md text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] transition-colors cursor-pointer"
+                  className="absolute right-3 p-1 rounded-full text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] transition-colors cursor-pointer"
                   title="Clear search"
                 >
                   <X className="w-3.5 h-3.5" />
@@ -381,15 +381,15 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
               )}
             </div>
 
-            {/* Attached Interactive Suggestion Bar */}
+            {/* Attached Interactive Suggestion Bar (Apple Liquid Glass Dropdown) */}
             {isDropdownOpen && (
               <div
-                className="absolute left-0 right-0 top-full mt-1.5 z-40 rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] shadow-2xl backdrop-blur-xl overflow-hidden divide-y divide-[var(--pc-border)]/50"
+                className="absolute left-0 right-0 top-full mt-2 z-40 rounded-3xl liquid-glass-dropdown overflow-hidden divide-y divide-[var(--pc-border)]/40"
                 role="listbox"
                 aria-label={`${activePlatformInfo.name} Suggestions`}
               >
                 {/* Header bar */}
-                <div className="px-3.5 py-2 bg-[var(--pc-bg)]/80 flex items-center justify-between text-[11px] text-[var(--pc-text-muted)] font-medium">
+                <div className="px-4 py-2.5 bg-[var(--pc-bg)]/70 backdrop-blur-md flex items-center justify-between text-[11px] text-[var(--pc-text-muted)] font-medium">
                   <span className="flex items-center gap-1.5">
                     <Search className="w-3 h-3 text-[var(--pc-accent)]" />
                     {handleInput.trim() ? (
@@ -460,8 +460,8 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                                   />
                                 )}
                                 {isClosest && (
-                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--pc-accent)] text-[var(--pc-accent-fg)] shrink-0">
-                                    Closest Match
+                                  <span className="liquid-pill-active px-2 py-0.5 text-[10px] font-semibold shrink-0">
+                                    ✨ Closest Match
                                   </span>
                                 )}
                               </div>
@@ -478,7 +478,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
 
                           <div className="shrink-0">
                             {isAlreadyAdded ? (
-                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--pc-success)] bg-[var(--pc-success)]/10 px-2 py-1 rounded-md border border-[var(--pc-success)]/20">
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--pc-success)] bg-[var(--pc-success)]/10 px-2.5 py-1 rounded-full border border-[var(--pc-success)]/25">
                                 <Check className="w-3 h-3" />
                                 Added
                               </span>
@@ -489,14 +489,11 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                                   e.stopPropagation();
                                   handleSelectSuggestion(item);
                                 }}
-                                className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
-                                style={{
-                                  backgroundColor: isClosest
-                                    ? 'var(--pc-accent)'
-                                    : 'var(--pc-surface-elevated)',
-                                  color: isClosest ? 'var(--pc-accent-fg)' : 'var(--pc-text)',
-                                  border: '1px solid var(--pc-border)',
-                                }}
+                                className={`min-h-[30px] px-3 py-1 text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer ${
+                                  isClosest
+                                    ? 'liquid-btn-primary'
+                                    : 'liquid-pill text-[var(--pc-text)]'
+                                }`}
                               >
                                 <Plus className="w-3 h-3" />
                                 Add
@@ -510,13 +507,13 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                 </div>
 
                 {/* Footer shortcut bar */}
-                <div className="px-3.5 py-1.5 bg-[var(--pc-bg)]/80 flex items-center justify-between text-[10px] text-[var(--pc-text-muted)]">
+                <div className="px-4 py-2 bg-[var(--pc-bg)]/70 backdrop-blur-md flex items-center justify-between text-[10px] text-[var(--pc-text-muted)]">
                   <span>
-                    Press <kbd className="px-1 py-0.5 rounded bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↵ Enter</kbd> to add match
+                    Press <kbd className="px-1.5 py-0.5 rounded-full bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↵ Enter</kbd> to add match
                   </span>
                   <span>
-                    <kbd className="px-1 py-0.5 rounded bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↑</kbd>{' '}
-                    <kbd className="px-1 py-0.5 rounded bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↓</kbd> to navigate
+                    <kbd className="px-1.5 py-0.5 rounded-full bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↑</kbd>{' '}
+                    <kbd className="px-1.5 py-0.5 rounded-full bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↓</kbd> to navigate
                   </span>
                 </div>
               </div>
@@ -526,11 +523,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
           <button
             type="submit"
             disabled={!handleInput.trim()}
-            className="min-h-[44px] px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 disabled:opacity-45 cursor-pointer"
-            style={{
-              backgroundColor: 'var(--pc-accent)',
-              color: 'var(--pc-accent-fg)',
-            }}
+            className="liquid-btn-primary min-h-[44px] px-5 py-2 font-semibold text-sm flex items-center justify-center gap-1.5 whitespace-nowrap shrink-0 disabled:opacity-45 cursor-pointer"
           >
             <Plus className="w-4 h-4" />
             Add Source
@@ -542,7 +535,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
             type="button"
             onClick={handleAutoSuggest}
             disabled={isSuggesting}
-            className="min-h-[40px] px-3.5 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-2 transition-colors disabled:opacity-50 cursor-pointer"
+            className="liquid-pill min-h-[40px] px-4 py-2 text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-2 transition-all disabled:opacity-50 cursor-pointer"
           >
             {isSuggesting ? (
               <Loader2 className="w-3.5 h-3.5 animate-spin text-[var(--pc-accent)]" />
@@ -555,7 +548,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
           <button
             type="button"
             onClick={() => setShowImportModal(true)}
-            className="min-h-[40px] px-3.5 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] text-xs font-medium text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] hover:border-[var(--pc-text-muted)]/50 flex items-center gap-2 transition-colors cursor-pointer"
+            className="liquid-pill min-h-[40px] px-4 py-2 text-xs font-medium text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] flex items-center gap-2 transition-all cursor-pointer"
           >
             <DownloadCloud className="w-3.5 h-3.5" />
             Connect Account (OAuth)
@@ -670,24 +663,24 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
         </div>
 
         {sources.length === 0 ? (
-          <div className="rounded-xl border border-dashed border-[var(--pc-border)] p-5 text-center text-xs text-[var(--pc-text-muted)]">
-            No sources added yet. Type a handle/subreddit above or click &ldquo;Auto-Suggest Real Channels&rdquo;.
+          <div className="liquid-glass rounded-3xl border-dashed p-6 text-center text-xs text-[var(--pc-text-muted)]">
+            No sources added yet. Type a handle/subreddit above or click &ldquo;Quick Fill Recommended Sources&rdquo;.
           </div>
         ) : (
-          <div className={`grid gap-2 ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
+          <div className={`grid gap-2.5 ${compact ? 'grid-cols-1' : 'grid-cols-1 sm:grid-cols-2 lg:grid-cols-3'}`}>
             {sources.map((src) => {
               const pInfo = getPlatformInfo(src.platform);
               return (
                 <div
                   key={src.id}
-                  className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] px-3.5 py-2.5 flex items-center justify-between gap-2.5"
+                  className="liquid-glass rounded-2xl px-4 py-3 flex items-center justify-between gap-3"
                 >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span style={{ color: pInfo.accentHex }} className="shrink-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span style={{ color: pInfo.accentHex }} className="shrink-0 p-1.5 rounded-full bg-[var(--pc-surface-elevated)]">
                       <PlatformIcon platform={src.platform} className="w-4 h-4" />
                     </span>
                     <div className="min-w-0">
-                      <div className="text-sm font-medium text-[var(--pc-text)] truncate">
+                      <div className="text-sm font-semibold text-[var(--pc-text)] truncate">
                         {src.displayName}
                       </div>
                       <div className="text-xs text-[var(--pc-text-muted)] truncate">
@@ -699,7 +692,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                     type="button"
                     onClick={() => removeSource(src.id)}
                     aria-label={`Remove ${src.displayName}`}
-                    className="min-w-[36px] min-h-[36px] flex items-center justify-center rounded-lg text-[var(--pc-text-muted)] hover:text-[var(--pc-danger)] hover:bg-[var(--pc-surface-elevated)] transition-colors shrink-0 cursor-pointer"
+                    className="min-w-[34px] min-h-[34px] flex items-center justify-center rounded-full text-[var(--pc-text-muted)] hover:text-[var(--pc-danger)] hover:bg-[var(--pc-danger)]/15 transition-colors shrink-0 cursor-pointer"
                   >
                     <Trash2 className="w-4 h-4" />
                   </button>
@@ -710,15 +703,15 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
         )}
       </div>
 
-      {/* Quick Import Modal (Simulated Interest OAuth Flow) */}
+      {/* Quick Import Modal (Apple Liquid Glass Modal) */}
       {showImportModal && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-sm p-4"
+          className="fixed inset-0 z-50 flex items-center justify-center bg-black/65 backdrop-blur-md p-4"
           role="dialog"
           aria-modal="true"
           aria-label="Quick Import via Account Interests"
         >
-          <div className="w-full max-w-lg rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-5 sm:p-6 space-y-5 shadow-2xl max-h-[85vh] overflow-y-auto">
+          <div className="w-full max-w-lg rounded-3xl liquid-glass-modal p-6 space-y-5 shadow-2xl max-h-[85vh] overflow-y-auto">
             <div className="flex items-start justify-between gap-4">
               <div>
                 <h3 className="text-base font-bold text-[var(--pc-text)]">
@@ -732,7 +725,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                 type="button"
                 onClick={() => setShowImportModal(false)}
                 aria-label="Close modal"
-                className="min-w-[36px] min-h-[36px] rounded-lg flex items-center justify-center text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] hover:bg-[var(--pc-surface-elevated)] cursor-pointer"
+                className="liquid-pill min-w-[36px] min-h-[36px] flex items-center justify-center text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] cursor-pointer"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -747,10 +740,10 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                     key={prov.id}
                     type="button"
                     onClick={() => handleQuickImportConnect(prov.id)}
-                    className={`p-3.5 rounded-xl border text-left transition-all cursor-pointer ${
+                    className={`p-3.5 rounded-2xl text-left transition-all cursor-pointer ${
                       active
-                        ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)]'
-                        : 'border-[var(--pc-border)] bg-[var(--pc-bg)] hover:border-[var(--pc-text-muted)]/50'
+                        ? 'liquid-pill-active'
+                        : 'liquid-glass hover:border-[var(--pc-accent)]/50'
                     }`}
                   >
                     <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
@@ -773,7 +766,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
             )}
 
             {!isImporting && importedCandidates.length > 0 && (
-              <div className="space-y-3 border-t border-[var(--pc-border)] pt-4">
+              <div className="space-y-3 border-t border-[var(--pc-border)]/50 pt-4">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-semibold text-[var(--pc-text)]">
                     Recommended Accounts ({importedCandidates.length})
@@ -781,11 +774,7 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
                   <button
                     type="button"
                     onClick={addAllImported}
-                    className="min-h-[36px] px-3.5 py-1.5 rounded-lg text-xs font-semibold cursor-pointer"
-                    style={{
-                      backgroundColor: 'var(--pc-accent)',
-                      color: 'var(--pc-accent-fg)',
-                    }}
+                    className="liquid-btn-primary min-h-[36px] px-4 py-1.5 text-xs font-semibold cursor-pointer"
                   >
                     Import All Selected
                   </button>

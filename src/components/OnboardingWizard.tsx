@@ -86,16 +86,18 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
   };
 
   return (
-    <div className="min-h-dvh bg-[var(--pc-bg)] text-[var(--pc-text)] flex flex-col">
-      {/* Top Minimal Header */}
-      <header className="border-b border-[var(--pc-border)] bg-[var(--pc-bg)]/90 backdrop-blur-md sticky top-0 z-30">
+    <div className="min-h-dvh bg-transparent text-[var(--pc-text)] flex flex-col">
+      {/* Top Minimal Header (Apple Liquid Glass) */}
+      <header className="liquid-glass-header sticky top-0 z-30">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-2.5 whitespace-nowrap shrink-0">
-            <PulseLogoMark className="w-6 h-6 text-[var(--pc-accent)]" />
+            <div className="p-1.5 rounded-full liquid-glass flex items-center justify-center">
+              <PulseLogoMark className="w-5 h-5 text-[var(--pc-accent)]" />
+            </div>
             <span className="font-display text-lg font-bold tracking-tight">PulseCurate</span>
           </div>
 
-          <div className="flex items-center gap-3 text-xs text-[var(--pc-text-muted)] font-mono-tabular">
+          <div className="flex items-center gap-3 text-xs text-[var(--pc-text-muted)] font-mono-tabular liquid-pill px-3 py-1">
             <span>Step {step} of 3</span>
             <span aria-hidden="true">&middot;</span>
             <span>{progressPct}%</span>
@@ -118,7 +120,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
       <main className="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-10 pb-28">
         {/* Stepper Header */}
         <div className="mb-8 space-y-4">
-          <div className="flex flex-wrap items-center gap-4 text-xs">
+          <div className="flex flex-wrap items-center gap-2.5 text-xs">
             {STEPS.map((s) => {
               const done = s.num < step;
               const active = s.num === step;
@@ -133,24 +135,24 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
                     }
                   }}
                   disabled={s.num > step}
-                  className={`flex items-center gap-2 transition-colors ${
+                  className={`min-h-[36px] px-3.5 py-1.5 flex items-center gap-2 transition-all cursor-pointer ${
                     active
-                      ? 'text-[var(--pc-text)] font-semibold'
+                      ? 'liquid-pill-active'
                       : done
-                      ? 'text-[var(--pc-accent)] cursor-pointer hover:underline'
-                      : 'text-[var(--pc-text-muted)]/60 cursor-default'
+                      ? 'liquid-pill text-[var(--pc-accent)]'
+                      : 'liquid-pill text-[var(--pc-text-muted)]/60 cursor-default opacity-60'
                   }`}
                 >
                   <span
-                    className={`w-6 h-6 rounded-full flex items-center justify-center text-[11px] font-mono-tabular border ${
+                    className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-mono-tabular border ${
                       active
                         ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-accent)]'
                         : done
-                        ? 'border-[var(--pc-accent)] bg-[var(--pc-accent)] text-[var(--pc-accent-fg)]'
+                        ? 'border-[var(--pc-accent)] bg-[var(--pc-accent)] text-[var(--pc-accent-fg)] font-bold'
                         : 'border-[var(--pc-border)] text-[var(--pc-text-muted)]'
                     }`}
                   >
-                    {done ? <Check className="w-3.5 h-3.5" /> : s.num}
+                    {done ? <Check className="w-3 h-3" /> : s.num}
                   </span>
                   <span>{s.title}</span>
                 </button>
@@ -188,7 +190,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
 
         {validationError && (
           <div
-            className="mt-5 rounded-xl border border-[var(--pc-danger)]/50 bg-[var(--pc-surface)] px-4 py-3 text-sm text-[var(--pc-danger)]"
+            className="mt-5 rounded-2xl liquid-glass px-4 py-3 text-sm text-[var(--pc-danger)] border-[var(--pc-danger)]/50"
             role="alert"
           >
             {validationError}
@@ -196,14 +198,14 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
         )}
       </main>
 
-      {/* Bottom Sticky Action Footer */}
-      <footer className="fixed bottom-0 left-0 right-0 z-30 border-t border-[var(--pc-border)] bg-[var(--pc-bg)]/95 backdrop-blur-md">
+      {/* Bottom Sticky Action Footer (Apple Liquid Glass) */}
+      <footer className="fixed bottom-0 left-0 right-0 z-30 liquid-glass-header border-t border-[var(--pc-border)]/50">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
           <button
             type="button"
             onClick={handleBack}
             disabled={step === 1 || isLaunching}
-            className="min-h-[44px] px-4 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] text-sm font-medium text-[var(--pc-text)] hover:border-[var(--pc-text-muted)]/50 disabled:opacity-40 flex items-center gap-2 cursor-pointer"
+            className="liquid-pill min-h-[44px] px-5 py-2 text-sm font-medium text-[var(--pc-text)] disabled:opacity-40 flex items-center gap-2 cursor-pointer"
           >
             <ArrowLeft className="w-4 h-4" />
             Back
@@ -213,11 +215,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
             <button
               type="button"
               onClick={handleNext}
-              className="min-h-[44px] px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 whitespace-nowrap cursor-pointer"
-              style={{
-                backgroundColor: 'var(--pc-accent)',
-                color: 'var(--pc-accent-fg)',
-              }}
+              className="liquid-btn-primary min-h-[44px] px-6 py-2 text-sm font-semibold flex items-center gap-2 whitespace-nowrap cursor-pointer"
             >
               Next Step
               <ArrowRight className="w-4 h-4" />
@@ -227,11 +225,7 @@ export const OnboardingWizard: React.FC<OnboardingWizardProps> = ({
               type="button"
               onClick={handleFinish}
               disabled={isLaunching}
-              className="min-h-[44px] px-5 py-2 rounded-xl text-sm font-semibold flex items-center gap-2 whitespace-nowrap disabled:opacity-60 cursor-pointer"
-              style={{
-                backgroundColor: 'var(--pc-accent)',
-                color: 'var(--pc-accent-fg)',
-              }}
+              className="liquid-btn-primary min-h-[44px] px-6 py-2 text-sm font-semibold flex items-center gap-2 whitespace-nowrap disabled:opacity-60 cursor-pointer"
             >
               {isLaunching ? (
                 <>

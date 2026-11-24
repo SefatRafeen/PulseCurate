@@ -17,6 +17,11 @@ export interface ThemePalette {
   success: string;
   warning: string;
   danger: string;
+  bgMesh1: string;
+  bgMesh2: string;
+  glassTint: string;
+  glassBorderTop: string;
+  glassSpecular: string;
 }
 
 export const THEMES: ThemePalette[] = [
@@ -33,10 +38,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#94A3B8',
     accent: '#38BDF8',
     accentFg: '#04121E',
-    accentSoft: 'rgba(56, 189, 248, 0.14)',
+    accentSoft: 'rgba(56, 189, 248, 0.16)',
     success: '#10B981',
     warning: '#F59E0B',
     danger: '#EF4444',
+    bgMesh1: 'rgba(56, 189, 248, 0.18)',
+    bgMesh2: 'rgba(99, 102, 241, 0.14)',
+    glassTint: 'rgba(17, 24, 39, 0.62)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.22)',
+    glassSpecular: 'rgba(255, 255, 255, 0.14)',
   },
   {
     id: 'obsidian-red',
@@ -51,10 +61,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#A8999D',
     accent: '#F87171',
     accentFg: '#1E0606',
-    accentSoft: 'rgba(248, 113, 113, 0.15)',
+    accentSoft: 'rgba(248, 113, 113, 0.16)',
     success: '#34D399',
     warning: '#FBBF24',
     danger: '#FB7185',
+    bgMesh1: 'rgba(248, 113, 113, 0.18)',
+    bgMesh2: 'rgba(217, 70, 239, 0.12)',
+    glassTint: 'rgba(22, 18, 22, 0.65)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.20)',
+    glassSpecular: 'rgba(248, 113, 113, 0.18)',
   },
   {
     id: 'midnight-crimson',
@@ -73,6 +88,11 @@ export const THEMES: ThemePalette[] = [
     success: '#34D399',
     warning: '#FBBF24',
     danger: '#F43F5E',
+    bgMesh1: 'rgba(244, 63, 94, 0.22)',
+    bgMesh2: 'rgba(168, 85, 247, 0.14)',
+    glassTint: 'rgba(27, 12, 18, 0.66)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.22)',
+    glassSpecular: 'rgba(251, 113, 133, 0.20)',
   },
   {
     id: 'cyber-blue',
@@ -87,10 +107,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#7DD3FC',
     accent: '#22D3EE',
     accentFg: '#021720',
-    accentSoft: 'rgba(34, 211, 238, 0.16)',
+    accentSoft: 'rgba(34, 211, 238, 0.18)',
     success: '#2DD4BF',
     warning: '#FBBF24',
     danger: '#F87171',
+    bgMesh1: 'rgba(34, 211, 238, 0.22)',
+    bgMesh2: 'rgba(59, 130, 246, 0.18)',
+    glassTint: 'rgba(10, 22, 45, 0.64)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.26)',
+    glassSpecular: 'rgba(56, 189, 248, 0.22)',
   },
   {
     id: 'deep-ocean',
@@ -105,10 +130,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#8BB3C0',
     accent: '#2DD4BF',
     accentFg: '#04201C',
-    accentSoft: 'rgba(45, 212, 191, 0.14)',
+    accentSoft: 'rgba(45, 212, 191, 0.16)',
     success: '#34D399',
     warning: '#FBBF24',
     danger: '#FB7185',
+    bgMesh1: 'rgba(45, 212, 191, 0.20)',
+    bgMesh2: 'rgba(6, 182, 212, 0.15)',
+    glassTint: 'rgba(11, 31, 42, 0.65)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.22)',
+    glassSpecular: 'rgba(45, 212, 191, 0.16)',
   },
   {
     id: 'emerald-terminal',
@@ -123,10 +153,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#6EE7B7',
     accent: '#10B981',
     accentFg: '#021A10',
-    accentSoft: 'rgba(16, 185, 129, 0.16)',
+    accentSoft: 'rgba(16, 185, 129, 0.18)',
     success: '#34D399',
     warning: '#FBBF24',
     danger: '#F87171',
+    bgMesh1: 'rgba(16, 185, 129, 0.20)',
+    bgMesh2: 'rgba(20, 184, 166, 0.15)',
+    glassTint: 'rgba(10, 28, 20, 0.65)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.24)',
+    glassSpecular: 'rgba(16, 185, 129, 0.18)',
   },
   {
     id: 'amoled-pitch-black',
@@ -136,15 +171,20 @@ export const THEMES: ThemePalette[] = [
     bg: '#000000',
     surface: '#09090B',
     surfaceElevated: '#121216',
-    border: 'rgba(255, 255, 255, 0.12)',
+    border: 'rgba(255, 255, 255, 0.14)',
     text: '#FFFFFF',
     textMuted: '#A1A1AA',
     accent: '#E4E4E7',
     accentFg: '#09090B',
-    accentSoft: 'rgba(255, 255, 255, 0.12)',
+    accentSoft: 'rgba(255, 255, 255, 0.14)',
     success: '#22C55E',
     warning: '#F59E0B',
     danger: '#EF4444',
+    bgMesh1: 'rgba(255, 255, 255, 0.10)',
+    bgMesh2: 'rgba(161, 161, 170, 0.08)',
+    glassTint: 'rgba(15, 15, 18, 0.72)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.32)',
+    glassSpecular: 'rgba(255, 255, 255, 0.22)',
   },
   {
     id: 'violet-pulse',
@@ -159,10 +199,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#C4B5FD',
     accent: '#C084FC',
     accentFg: '#19062B',
-    accentSoft: 'rgba(192, 132, 252, 0.16)',
+    accentSoft: 'rgba(192, 132, 252, 0.18)',
     success: '#34D399',
     warning: '#FBBF24',
     danger: '#FB7185',
+    bgMesh1: 'rgba(192, 132, 252, 0.22)',
+    bgMesh2: 'rgba(236, 72, 153, 0.15)',
+    glassTint: 'rgba(22, 14, 38, 0.65)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.24)',
+    glassSpecular: 'rgba(192, 132, 252, 0.20)',
   },
   {
     id: 'neon-synthwave',
@@ -177,10 +222,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#F9A8D4',
     accent: '#F472B6',
     accentFg: '#280518',
-    accentSoft: 'rgba(244, 114, 182, 0.18)',
+    accentSoft: 'rgba(244, 114, 182, 0.20)',
     success: '#2DD4BF',
     warning: '#FBBF24',
     danger: '#FB7185',
+    bgMesh1: 'rgba(244, 114, 182, 0.24)',
+    bgMesh2: 'rgba(34, 211, 238, 0.18)',
+    glassTint: 'rgba(30, 12, 48, 0.66)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.25)',
+    glassSpecular: 'rgba(244, 114, 182, 0.22)',
   },
   {
     id: 'sunset-rose',
@@ -195,10 +245,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#FDBA74',
     accent: '#FB923C',
     accentFg: '#280D02',
-    accentSoft: 'rgba(251, 146, 60, 0.16)',
+    accentSoft: 'rgba(251, 146, 60, 0.18)',
     success: '#34D399',
     warning: '#FBBF24',
     danger: '#F87171',
+    bgMesh1: 'rgba(251, 146, 60, 0.22)',
+    bgMesh2: 'rgba(244, 63, 94, 0.16)',
+    glassTint: 'rgba(34, 17, 22, 0.66)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.22)',
+    glassSpecular: 'rgba(251, 146, 60, 0.18)',
   },
   {
     id: 'warm-paper-light',
@@ -217,6 +272,11 @@ export const THEMES: ThemePalette[] = [
     success: '#15803D',
     warning: '#B45309',
     danger: '#B91C1C',
+    bgMesh1: 'rgba(217, 119, 6, 0.14)',
+    bgMesh2: 'rgba(244, 114, 182, 0.09)',
+    glassTint: 'rgba(255, 255, 255, 0.76)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.95)',
+    glassSpecular: 'rgba(255, 255, 255, 0.70)',
   },
   {
     id: 'crisp-daylight',
@@ -235,6 +295,11 @@ export const THEMES: ThemePalette[] = [
     success: '#16A34A',
     warning: '#D97706',
     danger: '#DC2626',
+    bgMesh1: 'rgba(14, 165, 233, 0.16)',
+    bgMesh2: 'rgba(99, 102, 241, 0.10)',
+    glassTint: 'rgba(255, 255, 255, 0.80)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.98)',
+    glassSpecular: 'rgba(255, 255, 255, 0.75)',
   },
   {
     id: 'nord-frost',
@@ -249,10 +314,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#D8DEE9',
     accent: '#88C0D0',
     accentFg: '#1D232C',
-    accentSoft: 'rgba(136, 192, 208, 0.18)',
+    accentSoft: 'rgba(136, 192, 208, 0.20)',
     success: '#A3BE8C',
     warning: '#EBCB8B',
     danger: '#BF616A',
+    bgMesh1: 'rgba(136, 192, 208, 0.22)',
+    bgMesh2: 'rgba(129, 161, 193, 0.16)',
+    glassTint: 'rgba(59, 66, 82, 0.65)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.24)',
+    glassSpecular: 'rgba(136, 192, 208, 0.20)',
   },
   {
     id: 'dracula',
@@ -267,10 +337,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#BD93F9',
     accent: '#FF79C6',
     accentFg: '#21222C',
-    accentSoft: 'rgba(255, 121, 198, 0.16)',
+    accentSoft: 'rgba(255, 121, 198, 0.18)',
     success: '#50FA7B',
     warning: '#F1FA8C',
     danger: '#FF5555',
+    bgMesh1: 'rgba(255, 121, 198, 0.22)',
+    bgMesh2: 'rgba(189, 147, 249, 0.18)',
+    glassTint: 'rgba(40, 42, 54, 0.65)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.24)',
+    glassSpecular: 'rgba(255, 121, 198, 0.20)',
   },
   {
     id: 'monokai',
@@ -285,10 +360,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#A59F85',
     accent: '#A6E22E',
     accentFg: '#1E1F1C',
-    accentSoft: 'rgba(166, 226, 46, 0.15)',
+    accentSoft: 'rgba(166, 226, 46, 0.16)',
     success: '#A6E22E',
     warning: '#E6DB74',
     danger: '#F92672',
+    bgMesh1: 'rgba(166, 226, 46, 0.20)',
+    bgMesh2: 'rgba(249, 38, 114, 0.15)',
+    glassTint: 'rgba(39, 40, 34, 0.66)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.20)',
+    glassSpecular: 'rgba(166, 226, 46, 0.18)',
   },
   {
     id: 'solarized-dark',
@@ -307,6 +387,11 @@ export const THEMES: ThemePalette[] = [
     success: '#859900',
     warning: '#B58900',
     danger: '#DC322F',
+    bgMesh1: 'rgba(42, 161, 152, 0.22)',
+    bgMesh2: 'rgba(38, 139, 210, 0.16)',
+    glassTint: 'rgba(7, 54, 66, 0.66)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.22)',
+    glassSpecular: 'rgba(42, 161, 152, 0.18)',
   },
   {
     id: 'coffee-sepia',
@@ -321,10 +406,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#C7B299',
     accent: '#D4A373',
     accentFg: '#1A110A',
-    accentSoft: 'rgba(212, 163, 115, 0.16)',
+    accentSoft: 'rgba(212, 163, 115, 0.18)',
     success: '#84A98C',
     warning: '#E9C46A',
     danger: '#E76F51',
+    bgMesh1: 'rgba(212, 163, 115, 0.22)',
+    bgMesh2: 'rgba(231, 111, 81, 0.15)',
+    glassTint: 'rgba(34, 25, 19, 0.68)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.20)',
+    glassSpecular: 'rgba(212, 163, 115, 0.18)',
   },
   {
     id: 'high-contrast',
@@ -339,10 +429,15 @@ export const THEMES: ThemePalette[] = [
     textMuted: '#E5E5E5',
     accent: '#FACC15',
     accentFg: '#000000',
-    accentSoft: 'rgba(250, 204, 21, 0.22)',
+    accentSoft: 'rgba(250, 204, 21, 0.24)',
     success: '#4ADE80',
     warning: '#FACC15',
     danger: '#F87171',
+    bgMesh1: 'rgba(250, 204, 21, 0.18)',
+    bgMesh2: 'rgba(255, 255, 255, 0.12)',
+    glassTint: 'rgba(15, 15, 15, 0.82)',
+    glassBorderTop: 'rgba(255, 255, 255, 0.40)',
+    glassSpecular: 'rgba(250, 204, 21, 0.25)',
   },
 ];
 
@@ -378,6 +473,14 @@ export function applyThemeToDocument(theme: ThemePalette): void {
   root.style.setProperty('--pc-success', theme.success);
   root.style.setProperty('--pc-warning', theme.warning);
   root.style.setProperty('--pc-danger', theme.danger);
+
+  // Apple Liquid Glass dynamic variables
+  root.style.setProperty('--bg-mesh-1', theme.bgMesh1);
+  root.style.setProperty('--bg-mesh-2', theme.bgMesh2);
+  root.style.setProperty('--glass-tint', theme.glassTint);
+  root.style.setProperty('--glass-border-top', theme.glassBorderTop);
+  root.style.setProperty('--glass-specular', theme.glassSpecular);
+
   root.style.colorScheme = theme.isLight ? 'light' : 'dark';
   if (theme.isLight) {
     root.classList.remove('dark');

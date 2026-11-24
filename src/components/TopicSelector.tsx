@@ -101,10 +101,10 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ topics, onChange, 
                 key={preset.id}
                 type="button"
                 onClick={() => togglePreset(preset)}
-                className={`min-h-[44px] px-3.5 py-2.5 rounded-xl border text-left transition-all flex items-center justify-between gap-2 text-sm font-medium focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--pc-accent)] ${
+                className={`min-h-[44px] px-4 py-2.5 text-left transition-all flex items-center justify-between gap-2 text-sm font-medium cursor-pointer ${
                   active
-                    ? 'border-[var(--pc-accent)] bg-[var(--pc-accent-soft)] text-[var(--pc-text)]'
-                    : 'border-[var(--pc-border)] bg-[var(--pc-surface)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] hover:border-[var(--pc-text-muted)]/40'
+                    ? 'liquid-pill-active'
+                    : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
                 }`}
               >
                 <span className="truncate">{preset.label}</span>
@@ -115,8 +115,8 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ topics, onChange, 
         </div>
       </div>
 
-      {/* Others / Custom Topic AI Extractor */}
-      <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-4 sm:p-5 space-y-3">
+      {/* Others / Custom Topic AI Extractor (Liquid Glass) */}
+      <div className="liquid-glass rounded-3xl p-5 sm:p-6 space-y-3">
         <div>
           <label
             htmlFor="custom-topic-input"
@@ -136,16 +136,12 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ topics, onChange, 
             value={customInput}
             onChange={(e) => setCustomInput(e.target.value)}
             placeholder="Type your custom topics or interests..."
-            className="flex-1 min-h-[44px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3.5 py-2 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
+            className="liquid-input flex-1 min-h-[44px] px-4 py-2 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
           />
           <button
             type="submit"
             disabled={isExtracting || !customInput.trim()}
-            className="min-h-[44px] px-4 py-2 rounded-xl font-medium text-sm flex items-center justify-center gap-2 whitespace-nowrap shrink-0 transition-opacity disabled:opacity-50 cursor-pointer"
-            style={{
-              backgroundColor: 'var(--pc-accent)',
-              color: 'var(--pc-accent-fg)',
-            }}
+            className="liquid-btn-primary min-h-[44px] px-5 py-2 font-semibold text-sm flex items-center justify-center gap-2 whitespace-nowrap shrink-0 transition-opacity disabled:opacity-50 cursor-pointer"
           >
             {isExtracting ? (
               <>
@@ -175,7 +171,7 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ topics, onChange, 
         )}
 
         {extractionInfo && (
-          <div className="pt-2 border-t border-[var(--pc-border)] space-y-2">
+          <div className="pt-2 border-t border-[var(--pc-border)]/50 space-y-2">
             <div className="flex flex-wrap items-center gap-2 text-xs text-[var(--pc-text-muted)]">
               <span>Mood: <strong className="text-[var(--pc-text)]">{extractionInfo.mood}</strong></span>
               <span aria-hidden="true">&middot;</span>
@@ -192,7 +188,7 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ topics, onChange, 
                       type="button"
                       disabled={alreadyAdded}
                       onClick={() => addQuickMoodTag(sub, extractionInfo.mood)}
-                      className="text-xs px-2.5 py-1 rounded-lg border border-[var(--pc-border)] bg-[var(--pc-bg)] text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] disabled:opacity-45 flex items-center gap-1"
+                      className="liquid-pill text-xs px-3 py-1 text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] disabled:opacity-45 flex items-center gap-1 cursor-pointer"
                     >
                       <Plus className="w-3 h-3" />
                       {sub}
@@ -205,7 +201,7 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ topics, onChange, 
         )}
       </div>
 
-      {/* Selected Removable Tags */}
+      {/* Selected Removable Tags (Liquid Pills) */}
       {topics.length > 0 && (
         <div className="space-y-2">
           <div className="text-xs font-medium text-[var(--pc-text-muted)]">
@@ -217,11 +213,11 @@ export const TopicSelector: React.FC<TopicSelectorProps> = ({ topics, onChange, 
                 key={topic.id}
                 type="button"
                 onClick={() => removeTopic(topic.id)}
-                className="min-h-[36px] px-3 py-1.5 rounded-lg border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-danger)]/60 flex items-center gap-2 transition-colors group"
+                className="liquid-pill min-h-[36px] px-3.5 py-1.5 text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-danger)] flex items-center gap-2 transition-all group cursor-pointer"
                 title={`Mood: ${topic.mood} — Click to remove`}
               >
                 <span>{topic.label}</span>
-                <span className="text-[var(--pc-text-muted)] text-[11px]">{topic.mood}</span>
+                <span className="text-[var(--pc-text-muted)] text-[11px] font-mono">({topic.mood})</span>
                 <X className="w-3.5 h-3.5 text-[var(--pc-text-muted)] group-hover:text-[var(--pc-danger)]" />
               </button>
             ))}
