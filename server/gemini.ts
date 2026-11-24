@@ -770,3 +770,60 @@ Evaluate every fetched post against the User Topics.
     hadRetries,
   };
 }
+
+export async function searchSourcesWithAI(
+  platform: PlatformId,
+  query: string
+): Promise<Array<{
+  platform: PlatformId;
+  handle: string;
+  displayName: string;
+  description: string;
+  verified: boolean;
+}>> {
+  const q = query.trim();
+  if (!q) return [];
+
+  try {
+    const ai = getGeminiClient();
+    const prompt = `Find the 4 most accurate, verified public accounts/channels/subreddits on the platform "${platform}" matching the search query: "${q}".
+Return ONLY valid JSON array with this schema:
+[
+  {
+    "handle": "exact handle e.g. @mkbhd, r/technology, company/openai, BBC News",
+    "displayName": "Display name of the person, channel, or page",
+    "description": "Short 1-sentence description of what they post",
+    "verified": true
+  }
+]`;
+
+    const { response } = await generateContentWithResilience(ai, {
+      contents: prompt,
+      config: {
+        systemInstruction:
+          'You are a precise social media directory finder. Only return real, verifiable public accounts matching the requested platform and search query. Output strictly a JSON array without markdown formatting.',
+      },
+    });
+
+    const parsed = safeParseJson<Array<{
+      handle?: string;
+      displayName?: string;
+      description?: string;
+      verified?: boolean;
+    }>>(response.text, []);
+
+    return parsed
+      .filter((p) => p && p.handle)
+      .map((p) => ({
+        platform,
+        handle: String(p.handle).trim(),
+        displayName: String(p.displayName || p.handle).trim(),
+        description: String(p.description || '').trim(),
+        verified: Boolean(p.verified ?? true),
+      }));
+  } catch (err) {
+    console.warn(`searchSourcesWithAI error for ${platform}:${q}:`, err);
+    return [];
+  }
+}
+

@@ -1,6 +1,21 @@
-import React, { useState } from 'react';
-import { Check, DownloadCloud, Loader2, Plus, Sparkles, Trash2, X } from 'lucide-react';
-import { getPlatformInfo, PLATFORMS } from '../data/platforms.ts';
+import React, { useEffect, useRef, useState } from 'react';
+import {
+  Check,
+  CheckCircle2,
+  DownloadCloud,
+  Loader2,
+  Plus,
+  Search,
+  Sparkles,
+  Trash2,
+  X,
+} from 'lucide-react';
+import {
+  getMatchingSuggestions,
+  getPlatformInfo,
+  PLATFORMS,
+  type DirectorySourceItem,
+} from '../data/platforms.ts';
 import type { PlatformId, SocialSource, TopicItem } from '../types.ts';
 import { postWithRetryStatus, sanitizeClientError } from '../utils/apiClient.ts';
 import { PlatformIcon } from './PlatformIcon.tsx';
@@ -37,6 +52,17 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
   const [suggestedPool, setSuggestedPool] = useState<SocialSource[]>([]);
   const [suggestError, setSuggestError] = useState<string | null>(null);
 
+  // Live Suggestion Bar state for every platform
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const [isLiveSearching, setIsLiveSearching] = useState(false);
+  const [highlightedIndex, setHighlightedIndex] = useState(-1);
+  const [liveSuggestions, setLiveSuggestions] = useState<Array<DirectorySourceItem | SocialSource>>(() =>
+    getMatchingSuggestions('youtube', '', 6)
+  );
+
+  const searchBoxRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
   // Quick Import modal state
   const [showImportModal, setShowImportModal] = useState(false);
   const [importProvider, setImportProvider] = useState<PlatformId | null>(null);
@@ -44,6 +70,64 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
   const [importedCandidates, setImportedCandidates] = useState<SocialSource[]>([]);
 
   const activePlatformInfo = getPlatformInfo(selectedPlatform);
+
+  // Update suggestions whenever selected platform or input changes
+  useEffect(() => {
+    const immediate = getMatchingSuggestions(selectedPlatform, handleInput, 6);
+    setLiveSuggestions(immediate);
+    setHighlightedIndex(immediate.length > 0 ? 0 : -1);
+
+    const trimmed = handleInput.trim();
+    if (trimmed.length < 2) {
+      setIsLiveSearching(false);
+      return;
+    }
+
+    let active = true;
+    setIsLiveSearching(true);
+    const timer = setTimeout(async () => {
+      try {
+        const res = await fetch(
+          `/api/sources/search?platform=${selectedPlatform}&q=${encodeURIComponent(trimmed)}`
+        );
+        if (!res.ok) return;
+        const data = await res.json();
+        if (active && Array.isArray(data.matches)) {
+          const seen = new Set<string>();
+          const merged: Array<DirectorySourceItem | SocialSource> = [];
+
+          [...data.matches, ...immediate].forEach((item) => {
+            const key = `${item.platform}:${item.handle.toLowerCase()}`;
+            if (!seen.has(key)) {
+              seen.add(key);
+              merged.push(item);
+            }
+          });
+          setLiveSuggestions(merged.slice(0, 7));
+        }
+      } catch {
+        // Fallback to instant directory matches
+      } finally {
+        if (active) setIsLiveSearching(false);
+      }
+    }, 260);
+
+    return () => {
+      active = false;
+      clearTimeout(timer);
+    };
+  }, [selectedPlatform, handleInput]);
+
+  // Click outside to dismiss suggestion bar
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (searchBoxRef.current && !searchBoxRef.current.contains(e.target as Node)) {
+        setIsDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const normalizeHandle = (platform: PlatformId, raw: string): string => {
     const trimmed = raw.trim();
@@ -75,15 +159,51 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
     onChange([...sources, newSource]);
   };
 
+  const handleSelectSuggestion = (item: DirectorySourceItem | SocialSource) => {
+    addSource(item);
+    setHandleInput('');
+    setIsDropdownOpen(false);
+    inputRef.current?.focus();
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!isDropdownOpen && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
+      setIsDropdownOpen(true);
+      return;
+    }
+
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev < liveSuggestions.length - 1 ? prev + 1 : 0));
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : liveSuggestions.length - 1));
+    } else if (e.key === 'Enter') {
+      if (isDropdownOpen && highlightedIndex >= 0 && liveSuggestions[highlightedIndex]) {
+        e.preventDefault();
+        handleSelectSuggestion(liveSuggestions[highlightedIndex]);
+      }
+    } else if (e.key === 'Escape') {
+      setIsDropdownOpen(false);
+    }
+  };
+
   const handleManualAdd = (e: React.FormEvent) => {
     e.preventDefault();
     if (!handleInput.trim()) return;
+
+    if (isDropdownOpen && highlightedIndex >= 0 && liveSuggestions[highlightedIndex]) {
+      handleSelectSuggestion(liveSuggestions[highlightedIndex]);
+      return;
+    }
+
     addSource({
       platform: selectedPlatform,
       handle: handleInput.trim(),
       displayName: handleInput.trim(),
     });
     setHandleInput('');
+    setIsDropdownOpen(false);
   };
 
   const removeSource = (id: string) => {
@@ -221,21 +341,188 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
       {/* Add Handle Bar + AI Actions */}
       <div className="rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface)] p-4 space-y-3">
         <form onSubmit={handleManualAdd} className="flex flex-col sm:flex-row gap-2.5">
-          <div className="flex-1 relative flex items-center">
-            <span
-              className="absolute left-3.5 pointer-events-none"
-              style={{ color: activePlatformInfo.accentHex }}
-            >
-              <PlatformIcon platform={selectedPlatform} className="w-4 h-4" />
-            </span>
-            <input
-              type="text"
-              value={handleInput}
-              onChange={(e) => setHandleInput(e.target.value)}
-              placeholder={`Search channel, page, subreddit, or handle... e.g. ${activePlatformInfo.placeholder}`}
-              className="w-full min-h-[44px] pl-10 pr-3.5 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
-            />
+          <div ref={searchBoxRef} className="flex-1 relative">
+            <div className="relative flex items-center">
+              <span
+                className="absolute left-3.5 pointer-events-none"
+                style={{ color: activePlatformInfo.accentHex }}
+              >
+                <PlatformIcon platform={selectedPlatform} className="w-4 h-4" />
+              </span>
+              <input
+                ref={inputRef}
+                type="text"
+                value={handleInput}
+                onChange={(e) => {
+                  setHandleInput(e.target.value);
+                  setIsDropdownOpen(true);
+                }}
+                onFocus={() => setIsDropdownOpen(true)}
+                onKeyDown={handleKeyDown}
+                placeholder={`Search ${activePlatformInfo.name} channel, page, or handle... e.g. ${activePlatformInfo.placeholder}`}
+                className="w-full min-h-[44px] pl-10 pr-9 py-2 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60 focus:outline-none focus:border-[var(--pc-accent)]"
+                autoComplete="off"
+                aria-label={`Search ${activePlatformInfo.name} channels and handles`}
+                aria-expanded={isDropdownOpen}
+              />
+              {handleInput && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setHandleInput('');
+                    setHighlightedIndex(-1);
+                    inputRef.current?.focus();
+                  }}
+                  className="absolute right-3 p-1 rounded-md text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] transition-colors cursor-pointer"
+                  title="Clear search"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
+
+            {/* Attached Interactive Suggestion Bar */}
+            {isDropdownOpen && (
+              <div
+                className="absolute left-0 right-0 top-full mt-1.5 z-40 rounded-2xl border border-[var(--pc-border)] bg-[var(--pc-surface)] shadow-2xl backdrop-blur-xl overflow-hidden divide-y divide-[var(--pc-border)]/50"
+                role="listbox"
+                aria-label={`${activePlatformInfo.name} Suggestions`}
+              >
+                {/* Header bar */}
+                <div className="px-3.5 py-2 bg-[var(--pc-bg)]/80 flex items-center justify-between text-[11px] text-[var(--pc-text-muted)] font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Search className="w-3 h-3 text-[var(--pc-accent)]" />
+                    {handleInput.trim() ? (
+                      <span>Closest matches on {activePlatformInfo.name}</span>
+                    ) : (
+                      <span>Popular &amp; Verified on {activePlatformInfo.name}</span>
+                    )}
+                  </span>
+                  {isLiveSearching ? (
+                    <span className="flex items-center gap-1 text-[var(--pc-accent)]">
+                      <Loader2 className="w-3 h-3 animate-spin" />
+                      <span>Searching...</span>
+                    </span>
+                  ) : (
+                    <span>{liveSuggestions.length} suggestions</span>
+                  )}
+                </div>
+
+                {/* Suggestion list */}
+                <div className="max-h-64 overflow-y-auto divide-y divide-[var(--pc-border)]/30">
+                  {liveSuggestions.length === 0 ? (
+                    <div className="p-4 text-center text-xs text-[var(--pc-text-muted)]">
+                      No matching verified preset found. Click <strong>Add Source</strong> or press <strong>Enter</strong> to add &ldquo;{handleInput}&rdquo; directly!
+                    </div>
+                  ) : (
+                    liveSuggestions.map((item, idx) => {
+                      const isClosest = idx === 0 && Boolean(handleInput.trim());
+                      const isHighlighted = idx === highlightedIndex;
+                      const normHandle = normalizeHandle(item.platform, item.handle);
+                      const isAlreadyAdded = sources.some(
+                        (s) =>
+                          s.platform === item.platform &&
+                          s.handle.toLowerCase() === normHandle.toLowerCase()
+                      );
+
+                      return (
+                        <div
+                          key={`${item.platform}-${item.handle}-${idx}`}
+                          onClick={() => handleSelectSuggestion(item)}
+                          onMouseEnter={() => setHighlightedIndex(idx)}
+                          className={`p-3 flex items-center justify-between gap-3 cursor-pointer transition-colors ${
+                            isHighlighted
+                              ? 'bg-[var(--pc-accent-soft)]'
+                              : 'hover:bg-[var(--pc-surface-elevated)]'
+                          }`}
+                          role="option"
+                          aria-selected={isHighlighted}
+                        >
+                          <div className="flex items-start gap-2.5 min-w-0">
+                            <span
+                              className="p-1.5 rounded-lg shrink-0 mt-0.5"
+                              style={{
+                                backgroundColor: `${activePlatformInfo.accentHex}18`,
+                                color: activePlatformInfo.accentHex,
+                              }}
+                            >
+                              <PlatformIcon platform={item.platform} className="w-3.5 h-3.5" />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-1.5 flex-wrap">
+                                <span className="text-xs font-semibold text-[var(--pc-text)] truncate">
+                                  {item.displayName}
+                                </span>
+                                {item.verified && (
+                                  <CheckCircle2
+                                    className="w-3.5 h-3.5 text-sky-400 shrink-0"
+                                    aria-label="Verified account"
+                                  />
+                                )}
+                                {isClosest && (
+                                  <span className="px-1.5 py-0.5 rounded text-[10px] font-semibold bg-[var(--pc-accent)] text-[var(--pc-accent-fg)] shrink-0">
+                                    Closest Match
+                                  </span>
+                                )}
+                              </div>
+                              <div className="text-[11px] font-mono text-[var(--pc-text-muted)] truncate">
+                                {item.handle}
+                              </div>
+                              {item.description && (
+                                <p className="text-[11px] text-[var(--pc-text-muted)] line-clamp-1 mt-0.5">
+                                  {item.description}
+                                </p>
+                              )}
+                            </div>
+                          </div>
+
+                          <div className="shrink-0">
+                            {isAlreadyAdded ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] font-medium text-[var(--pc-success)] bg-[var(--pc-success)]/10 px-2 py-1 rounded-md border border-[var(--pc-success)]/20">
+                                <Check className="w-3 h-3" />
+                                Added
+                              </span>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  e.stopPropagation();
+                                  handleSelectSuggestion(item);
+                                }}
+                                className="px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1 transition-all cursor-pointer shadow-sm"
+                                style={{
+                                  backgroundColor: isClosest
+                                    ? 'var(--pc-accent)'
+                                    : 'var(--pc-surface-elevated)',
+                                  color: isClosest ? 'var(--pc-accent-fg)' : 'var(--pc-text)',
+                                  border: '1px solid var(--pc-border)',
+                                }}
+                              >
+                                <Plus className="w-3 h-3" />
+                                Add
+                              </button>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })
+                  )}
+                </div>
+
+                {/* Footer shortcut bar */}
+                <div className="px-3.5 py-1.5 bg-[var(--pc-bg)]/80 flex items-center justify-between text-[10px] text-[var(--pc-text-muted)]">
+                  <span>
+                    Press <kbd className="px-1 py-0.5 rounded bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↵ Enter</kbd> to add match
+                  </span>
+                  <span>
+                    <kbd className="px-1 py-0.5 rounded bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↑</kbd>{' '}
+                    <kbd className="px-1 py-0.5 rounded bg-[var(--pc-surface)] border border-[var(--pc-border)] font-mono text-[9px]">↓</kbd> to navigate
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
+
           <button
             type="submit"
             disabled={!handleInput.trim()}

@@ -5,9 +5,11 @@ import {
   extractTopicsWithAI,
   filterAndSummarizePosts,
   formatFriendlyGeminiError,
+  searchSourcesWithAI,
   suggestSourcesWithAI,
   type RetryStatusEvent,
 } from './gemini.ts';
+import { getMatchingSuggestions } from '../src/data/platforms.ts';
 import { runHybridFetchPipeline } from './hybridPipeline.ts';
 import {
   dispatchEmailDigest,
@@ -134,6 +136,46 @@ export function createPulseCurateApp(): express.Express {
       }
     }
   });
+
+  // Source Search & Closest Match Autocomplete for all social media platforms
+  const handleSourceSearch = async (req: express.Request, res: express.Response) => {
+    const platform = (
+      (req.method === 'GET' ? req.query.platform : req.body?.platform) || 'youtube'
+    ) as PlatformId;
+    const query = String(
+      (req.method === 'GET' ? req.query.q || req.query.query : req.body?.query) || ''
+    ).trim();
+
+    if (!query) {
+      const popular = getMatchingSuggestions(platform, '', 6);
+      res.json({ matches: popular });
+      return;
+    }
+
+    // 1. Instant lookup from popular directory (0ms)
+    const localMatches = getMatchingSuggestions(platform, query, 6);
+
+    // 2. If query >= 2 chars and fewer than 4 matches, enrich via Gemini search
+    if (localMatches.length < 4 && query.length >= 2) {
+      try {
+        const aiMatches = await searchSourcesWithAI(platform, query);
+        const existingHandles = new Set(localMatches.map((m) => m.handle.toLowerCase()));
+        aiMatches.forEach((m) => {
+          if (!existingHandles.has(m.handle.toLowerCase())) {
+            existingHandles.add(m.handle.toLowerCase());
+            localMatches.push(m);
+          }
+        });
+      } catch (err) {
+        console.warn('AI search matching fallback error:', err);
+      }
+    }
+
+    res.json({ matches: localMatches.slice(0, 8) });
+  };
+
+  router.get('/sources/search', handleSourceSearch);
+  router.post('/sources/search', handleSourceSearch);
 
   // Hybrid Fetch + Gemini Filter & Summarize Pipeline
   router.post('/feed/refresh', async (req, res) => {
