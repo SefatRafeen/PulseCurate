@@ -69,6 +69,17 @@ export interface FeedItem {
   urgency: UrgencyLevel;
   relevanceScore: number;
   sourceUrl: string;
+  imageUrl?: string;
+  readTime?: string;
+  fullContent?: string;
+  authorAvatar?: string;
+  engagementStats?: {
+    likes: number;
+    comments: number;
+    shares: number;
+    views?: string;
+  };
+  isSaved?: boolean;
 }
 
 export interface SourceStatus {
