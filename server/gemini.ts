@@ -8,18 +8,18 @@ import type {
   TopicMood,
 } from '../src/types.ts';
 
-export const GEMINI_MODEL = 'gemini-3.5-flash-lite';
+export const GEMINI_MODEL = 'gemini-3.8-flash';
 
 export const MODEL_FALLBACK_CHAIN = [
-  'gemini-3.5-flash-lite',
-  'gemini-3.5-flash',
   'gemini-3.8-flash',
+  'gemini-3.5-flash',
+  'gemini-3.5-flash-lite',
   'gemini-3.8-flash-lite',
 ] as const;
 
 export const SEARCH_GROUNDED_MODELS = [
-  'gemini-3.5-flash',
   'gemini-3.8-flash',
+  'gemini-3.5-flash',
 ] as const;
 
 const PRIMARY_RETRY_DELAYS_MS = [1000, 2000, 4000] as const;
@@ -520,33 +520,45 @@ Return ONLY valid JSON matching this exact structure (no markdown commentary out
   return sources;
 }
 
-function buildSiteScopedQuery(source: SocialSource): string {
-  const clean = source.handle.replace(/^@/, '').replace(/^r\//, '').trim();
-  switch (source.platform) {
-    case 'x':
-      return `site:x.com/${clean} OR site:twitter.com/${clean}`;
-    case 'instagram':
-      return `site:instagram.com/${clean}`;
-    case 'facebook':
-      return `site:facebook.com/${clean}`;
-    case 'linkedin':
-      if (clean.startsWith('company/') || clean.startsWith('in/')) {
-        return `site:linkedin.com/${clean}`;
-      }
-      return `site:linkedin.com/in/${clean} OR site:linkedin.com/company/${clean}`;
-    case 'tiktok':
-      return `site:tiktok.com/@${clean}`;
-    case 'threads':
-      return `site:threads.net/@${clean}`;
-    case 'whatsapp':
-      return `site:whatsapp.com/channel "${clean}" OR "${clean}" WhatsApp channel updates`;
-    case 'reddit':
-      return `site:reddit.com/r/${clean}`;
-    case 'youtube':
-      return `site:youtube.com/@${clean} OR site:youtube.com/channel/${source.channelId || clean}`;
-    default:
-      return `${clean}`;
-  }
+const PLATFORM_DISPLAY_NAMES: Record<PlatformId, string> = {
+  youtube: 'YouTube',
+  reddit: 'Reddit',
+  x: 'X',
+  instagram: 'Instagram',
+  facebook: 'Facebook',
+  linkedin: 'LinkedIn',
+  tiktok: 'TikTok',
+  threads: 'Threads',
+  whatsapp: 'WhatsApp',
+};
+
+function formatHandleWithAt(handle: string): string {
+  const trimmed = (handle || '').trim();
+  if (!trimmed) return '';
+  if (trimmed.startsWith('@') || trimmed.startsWith('r/')) return trimmed;
+  return `@${trimmed}`;
+}
+
+function buildTargetedSearchQuery(source: SocialSource): {
+  targetedQuery: string;
+  platformName: string;
+  formattedHandle: string;
+  displayName: string;
+  canonicalUrl: string;
+} {
+  const platformName = PLATFORM_DISPLAY_NAMES[source.platform] || source.platform;
+  const displayName = (source.name || source.displayName || source.handle).trim();
+  const formattedHandle = formatHandleWithAt(source.handle);
+  const canonicalUrl = source.url || '';
+  const targetedQuery = `latest updates from ${displayName} (${formattedHandle}) on ${platformName}`;
+
+  return {
+    targetedQuery,
+    platformName,
+    formattedHandle,
+    displayName,
+    canonicalUrl,
+  };
 }
 
 export async function fetchPlatformViaSearchGrounding(
@@ -555,14 +567,16 @@ export async function fetchPlatformViaSearchGrounding(
   onStatus?: StatusCallback
 ): Promise<{ posts: RawSocialPost[]; noPostsMessage?: string }> {
   const ai = getGeminiClient();
-  const siteQuery = buildSiteScopedQuery(source);
+  const { targetedQuery, platformName, formattedHandle, displayName, canonicalUrl } =
+    buildTargetedSearchQuery(source);
   const topicsContext = topicLabels.length > 0 ? topicLabels.join(', ') : 'general news and updates';
 
   const { response } = await generateContentWithResilience(
     ai,
     {
-      contents: `Search using this site-scoped query: ${siteQuery}
-Focus on recent public posts, announcements, videos, or discussions related to: ${topicsContext}.
+      contents: `Use Google Search to find: "${targetedQuery}"
+Channel / Account Profile: ${displayName} (${formattedHandle}) on ${platformName}${canonicalUrl ? ` — ${canonicalUrl}` : ''}.
+Focus on recent public posts, announcements, news updates, videos, or discussions (especially related to: ${topicsContext}, as well as major recent updates from this account).
 Today's date is ${new Date().toISOString().slice(0, 10)}.
 
 Return ONLY valid JSON matching this schema:
@@ -571,7 +585,7 @@ Return ONLY valid JSON matching this schema:
   "statusMessage": "optional message if no recent public posts were found",
   "posts": [
     {
-      "accountName": "Display name of account/page",
+      "accountName": "${displayName}",
       "title": "Short title or topic of the post",
       "content": "Factual, detailed summary of what the post actually says (3-5 sentences covering key facts, figures, names, and context)",
       "timestamp": "ISO date or human timestamp from search result e.g. 2026-11-21 or 2 days ago",
@@ -582,7 +596,7 @@ Return ONLY valid JSON matching this schema:
       config: {
         tools: [{ googleSearch: {} }],
         systemInstruction:
-          'You are a grounded social media intelligence retriever. Only report real, verifiable recent posts or discussions returned by Google Search. Do NOT fabricate posts, quotes, or URLs. If no recent public posts exist for this handle, set hasRecentPosts to false and return an empty posts array.',
+          'You are a grounded social media intelligence retriever. Use Google Search to find real, verifiable recent posts, announcements, or news updates from the requested creator/channel on the target platform. Do NOT fabricate posts, quotes, or URLs. If no recent public posts exist for this account, set hasRecentPosts to false and return an empty posts array.',
       },
     },
     onStatus
@@ -611,12 +625,15 @@ Return ONLY valid JSON matching this schema:
     .map((p, idx) => ({
       platform: source.platform,
       sourceId: source.id,
-      accountName: p.accountName || source.displayName || source.handle,
+      accountName: p.accountName || displayName,
       handle: source.handle,
-      title: p.title || `${source.displayName} update`,
+      title: p.title || `${displayName} update`,
       content: p.content || p.title || '',
       timestamp: p.timestamp || new Date().toISOString(),
-      url: sanitizeHttpUrl(p.url || groundingUrls[idx] || groundingUrls[0], 'https://google.com'),
+      url: sanitizeHttpUrl(
+        p.url || groundingUrls[idx] || groundingUrls[0] || canonicalUrl,
+        canonicalUrl || 'https://google.com'
+      ),
     }));
 
   if (rawPosts.length === 0) {
@@ -624,7 +641,7 @@ Return ONLY valid JSON matching this schema:
       posts: [],
       noPostsMessage:
         parsed.statusMessage ||
-        `No recent public posts indexed for ${source.handle} on ${source.platform}.`,
+        `No recent public posts indexed for ${displayName} (${formattedHandle}) on ${platformName}.`,
     };
   }
 
@@ -666,7 +683,7 @@ ${JSON.stringify(rawPosts, null, 2)}`,
         systemInstruction: `You are PulseCurate's senior editorial AI analyst and summarizer.
 Evaluate every fetched post against the User Topics.
 1. Score relevance from 1 to 10 (relevanceScore).
-2. STRICTLY filter out clickbait, promotional spam, and off-topic noise: ONLY include items with relevanceScore >= 7.
+2. Filter out obvious spam, ads, and pure clickbait: include items with relevanceScore >= 5, and ensure legitimate recent updates from user-added channels are preserved.
 3. For each kept item, produce a rich TWO-TIER summary structure:
    - headline: Crisp, factual AI Headline (no clickbait, max 14 words).
    - previewSummary: Medium-depth contextual explanation (2-4 informative sentences giving background, who/what is involved, and why it matters right now).
@@ -738,7 +755,7 @@ Evaluate every fetched post against the User Topics.
   }>(response.text, { dominantMood: 'Analytical', filteredOutCount: 0, items: [] });
 
   const keptItems: FeedItem[] = (parsed.items || [])
-    .filter((item) => (item.relevanceScore ?? 0) >= 7 && item.headline)
+    .filter((item) => (item.relevanceScore ?? 0) >= 5 && item.headline)
     .map((item, idx) => ({
       id: item.id || `feed-${Date.now()}-${idx}`,
       platform: (item.platform as PlatformId) || 'x',

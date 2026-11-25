@@ -17,6 +17,7 @@ import {
 } from '../data/platforms.ts';
 import type { PlatformId, SocialSource, TopicItem } from '../types.ts';
 import { postWithRetryStatus, sanitizeClientError } from '../utils/apiClient.ts';
+import { normalizeHandleForPlatform, normalizeSourceInput } from '../utils/sourceNormalization.ts';
 import { PlatformIcon } from './PlatformIcon.tsx';
 
 interface SourceSelectorProps {
@@ -122,38 +123,38 @@ export const SourceSelector: React.FC<SourceSelectorProps> = ({
   }, []);
 
   const normalizeHandle = (platform: PlatformId, raw: string): string => {
-    const trimmed = raw.trim();
-    if (platform === 'reddit') {
-      const clean = trimmed
-        .replace(/^https?:\/\/(www\.)?reddit\.com\/r\//i, '')
-        .replace(/^r\//i, '')
-        .replace(/\/.*$/, '');
-      return `r/${clean}`;
-    }
-    return trimmed;
+    return normalizeHandleForPlatform(platform, raw);
   };
 
   const addSource = (candidate: Omit<SocialSource, 'id'> & { id?: string }) => {
-    const normalizedHandle = normalizeHandle(candidate.platform, candidate.handle);
-    const duplicate = sources.some(
-      (s) =>
-        s.platform === candidate.platform &&
-        s.handle.toLowerCase() === normalizedHandle.toLowerCase()
-    );
-    if (duplicate) return;
-
-    const newSource: SocialSource = {
+    const newSource = normalizeSourceInput({
       id:
         candidate.id ||
         `${candidate.platform}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`,
       platform: candidate.platform,
-      handle: normalizedHandle,
-      displayName: candidate.displayName || normalizedHandle,
+      handle: candidate.handle,
+      displayName: candidate.displayName,
+      name: candidate.name,
+      url: candidate.url,
       channelId: candidate.channelId,
       description: candidate.description,
       verified: candidate.verified,
-    };
+    });
+
+    const duplicate = sources.some(
+      (s) =>
+        s.platform === newSource.platform &&
+        s.handle.toLowerCase() === newSource.handle.toLowerCase()
+    );
+    if (duplicate) return;
+
     onChange([...sources, newSource]);
+
+    fetch('/api/sources', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ source: newSource }),
+    }).catch(() => {});
   };
 
   const handleSelectSuggestion = (item: DirectorySourceItem | SocialSource) => {

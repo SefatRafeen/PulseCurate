@@ -15,6 +15,7 @@ import type {
 } from './types.ts';
 import { postWithRetryStatus, sanitizeClientError } from './utils/apiClient.ts';
 import { computeNextScheduledTimestamp } from './utils/scheduleMath.ts';
+import { normalizeSourceInput } from './utils/sourceNormalization.ts';
 import {
   DEFAULT_SETTINGS,
   loadCachedFeed,
@@ -238,7 +239,7 @@ export default function App() {
       ...settings,
       onboardingComplete: true,
       topics: data.topics,
-      sources: data.sources,
+      sources: data.sources.map((s) => normalizeSourceInput(s)),
       schedule: data.schedule,
       nextScheduledTimestamp: nextScheduled,
     };
@@ -278,8 +279,15 @@ export default function App() {
   }, [syncScheduleToServer]);
 
   const handleSourcesChange = useCallback((sources: SocialSource[]) => {
+    const normalized = sources.map((s) => normalizeSourceInput(s));
+    fetch('/api/sources/sync', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ sources: normalized }),
+    }).catch(() => {});
+
     setSettings((prev) => {
-      const updated = { ...prev, sources };
+      const updated = { ...prev, sources: normalized };
       void syncScheduleToServer(updated);
       return updated;
     });

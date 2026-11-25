@@ -23,6 +23,8 @@ export interface SocialSource {
   platform: PlatformId;
   handle: string;
   displayName: string;
+  name?: string;
+  url?: string;
   channelId?: string;
   description?: string;
   verified?: boolean;

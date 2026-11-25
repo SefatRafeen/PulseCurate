@@ -1,4 +1,5 @@
 import type { SocialSource, SourceStatus } from '../src/types.ts';
+import { normalizeSourceInput } from '../src/utils/sourceNormalization.ts';
 import {
   fetchPlatformViaSearchGrounding,
   formatFriendlyGeminiError,
@@ -244,8 +245,10 @@ export async function runHybridFetchPipeline(
   topicLabels: string[],
   onStatus?: StatusCallback
 ): Promise<{ rawPosts: RawSocialPost[]; sourceStatuses: SourceStatus[] }> {
+  const normalizedSources = sources.map((raw) => normalizeSourceInput(raw));
+
   const results = await Promise.allSettled(
-    sources.map(async (source) => {
+    normalizedSources.map(async (source) => {
       if (source.platform === 'youtube') {
         return fetchYouTubeSource(source, topicLabels, onStatus);
       }

@@ -17,6 +17,14 @@ import {
   getResendConfigStatus,
   isConfiguredSecret,
 } from './emailDigest.ts';
+import {
+  getActiveSourcesFromTurso,
+  isTursoConfigured,
+  removeSourceFromTurso,
+  syncAllSourcesToTurso,
+  upsertSourceToTurso,
+} from './turso.ts';
+import { normalizeSourceInput } from '../src/utils/sourceNormalization.ts';
 
 // In-memory store for /api/cron-digest fallback when triggered by external Vercel/GitHub cron
 let syncedScheduleState: {
@@ -178,17 +186,68 @@ export function createPulseCurateApp(): express.Express {
   router.get('/sources/search', handleSourceSearch);
   router.post('/sources/search', handleSourceSearch);
 
-  // Hybrid Fetch + Gemini Filter & Summarize Pipeline
+  // Turso Source Persistence Endpoints (normalized platform, name, handle, url)
+  router.get('/sources', async (_req, res) => {
+    const tursoSources = await getActiveSourcesFromTurso();
+    res.json({
+      sources: tursoSources || [],
+      persistedInTurso: tursoSources !== null && isTursoConfigured(),
+    });
+  });
+
+  router.post('/sources', async (req, res) => {
+    try {
+      const candidate = req.body?.source || req.body;
+      if (!candidate || typeof candidate.handle !== 'string' || !candidate.handle.trim()) {
+        res.status(400).json({ error: 'A valid source handle or URL is required.' });
+        return;
+      }
+      const saved = await upsertSourceToTurso({
+        id: typeof candidate.id === 'string' ? candidate.id : undefined,
+        platform: String(candidate.platform || 'x'),
+        handle: candidate.handle,
+        displayName: candidate.displayName,
+        name: candidate.name,
+        url: candidate.url,
+        channelId: candidate.channelId,
+        description: candidate.description,
+        verified: Boolean(candidate.verified),
+      });
+      res.json({ source: saved, persistedInTurso: isTursoConfigured() });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to save source.' });
+    }
+  });
+
+  router.put('/sources/sync', async (req, res) => {
+    try {
+      const rawSources = Array.isArray(req.body?.sources) ? (req.body.sources as SocialSource[]) : [];
+      const synced = await syncAllSourcesToTurso(rawSources);
+      res.json({ sources: synced, persistedInTurso: isTursoConfigured() });
+    } catch (err) {
+      res.status(500).json({ error: err instanceof Error ? err.message : 'Failed to sync sources.' });
+    }
+  });
+
+  router.delete('/sources/:id', async (req, res) => {
+    const id = req.params.id;
+    if (!id) {
+      res.status(400).json({ error: 'Source ID is required.' });
+      return;
+    }
+    const removed = await removeSourceFromTurso(id);
+    res.json({ ok: true, removed });
+  });
+
+  // Hybrid Fetch + Gemini 3.8 Flash Filter & Summarize Pipeline
   router.post('/feed/refresh', async (req, res) => {
     const topics = Array.isArray(req.body?.topics) ? (req.body.topics as TopicItem[]) : [];
-    const sources = Array.isArray(req.body?.sources) ? (req.body.sources as SocialSource[]) : [];
+    const requestSources = Array.isArray(req.body?.sources)
+      ? (req.body.sources as SocialSource[])
+      : [];
 
     if (topics.length === 0) {
       res.status(400).json({ error: 'At least one active topic is required.' });
-      return;
-    }
-    if (sources.length === 0) {
-      res.status(400).json({ error: 'At least one social media source is required.' });
       return;
     }
 
@@ -196,9 +255,38 @@ export function createPulseCurateApp(): express.Express {
     const sse = useStream ? createSseResponder(res) : null;
 
     try {
+      // 1. Sync any newly added/updated sources into Turso with normalized platform, name, handle, url
+      if (requestSources.length > 0) {
+        await syncAllSourcesToTurso(requestSources);
+      }
+
+      // 2. Fetch all active sources from Turso (fallback safely to normalized requestSources if DB unavailable)
+      const tursoSources = await getActiveSourcesFromTurso();
+      const mergedMap = new Map<string, SocialSource>();
+
+      for (const raw of [...(tursoSources || []), ...requestSources]) {
+        if (!raw || !raw.handle) continue;
+        const norm = normalizeSourceInput(raw);
+        const key = `${norm.platform}:${norm.handle.toLowerCase()}`;
+        if (!mergedMap.has(key)) {
+          mergedMap.set(key, norm);
+        }
+      }
+
+      const activeSources = Array.from(mergedMap.values());
+      if (activeSources.length === 0) {
+        const msg = 'At least one social media source is required.';
+        if (sse) {
+          sse.sendError(msg);
+        } else {
+          res.status(400).json({ error: msg });
+        }
+        return;
+      }
+
       const topicLabels = topics.map((t) => t.label);
       const { rawPosts, sourceStatuses } = await runHybridFetchPipeline(
-        sources.slice(0, 15),
+        activeSources.slice(0, 40),
         topicLabels,
         sse?.sendStatus
       );
@@ -247,11 +335,15 @@ export function createPulseCurateApp(): express.Express {
   });
 
   // Sync schedule & delivery profile
-  router.post('/schedule/sync', (req, res) => {
+  router.post('/schedule/sync', async (req, res) => {
     const topics = Array.isArray(req.body?.topics) ? (req.body.topics as TopicItem[]) : [];
     const sources = Array.isArray(req.body?.sources) ? (req.body.sources as SocialSource[]) : [];
     const email = typeof req.body?.email === 'string' ? req.body.email.trim() : '';
     const webhookUrl = typeof req.body?.webhookUrl === 'string' ? req.body.webhookUrl.trim() : '';
+
+    if (sources.length > 0) {
+      await syncAllSourcesToTurso(sources);
+    }
 
     syncedScheduleState = {
       topics,
@@ -306,9 +398,12 @@ export function createPulseCurateApp(): express.Express {
         Array.isArray(body.topics) && body.topics.length > 0
           ? body.topics
           : syncedScheduleState?.topics || [];
+      const tursoSources = await getActiveSourcesFromTurso();
       const sources: SocialSource[] =
         Array.isArray(body.sources) && body.sources.length > 0
           ? body.sources
+          : tursoSources && tursoSources.length > 0
+          ? tursoSources
           : syncedScheduleState?.sources || [];
       const email =
         typeof body.email === 'string' && body.email.trim()
@@ -328,7 +423,7 @@ export function createPulseCurateApp(): express.Express {
       }
 
       const { rawPosts, sourceStatuses } = await runHybridFetchPipeline(
-        sources.slice(0, 15),
+        sources.slice(0, 40),
         topics.map((t) => t.label)
       );
       const summarized = await filterAndSummarizePosts(rawPosts, topics);
