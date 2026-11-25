@@ -1,89 +1,98 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   AlertCircle,
-  Bell,
   Bookmark,
-  Check,
   Clock,
-  Compass,
-  Download,
-  ExternalLink,
-  Flame,
-  Headphones,
   Heart,
   Home,
   Layers,
-  Mail,
-  MessageSquare,
-  Play,
+  Newspaper,
   Radio,
   RefreshCw,
   Search,
   Settings,
-  Share2,
-  ShieldCheck,
-  Sparkles,
-  TrendingUp,
-  User,
   WifiOff,
   X,
-  Zap,
 } from 'lucide-react';
-import { motion, AnimatePresence } from 'motion/react';
+import { motion } from 'motion/react';
 import { getPlatformInfo } from '../data/platforms.ts';
 import { useOnlineStatus, usePWAInstall } from '../hooks/usePWA.ts';
-import type { AppSettings, FeedItem, PlatformId, SourceStatus } from '../types.ts';
+import type {
+  AppSettings,
+  FeedItem,
+  PlatformId,
+  ScheduleConfig,
+  SocialSource,
+  TopicItem,
+} from '../types.ts';
 import {
   getEditorialImage,
   getEngagementStats,
   getEstimatedReadTime,
 } from '../utils/editorialImages.ts';
-import { formatCountdown, formatRelativeTime, formatScheduledLabel } from '../utils/scheduleMath.ts';
+import { formatRelativeTime } from '../utils/scheduleMath.ts';
 import { ArticleReaderView } from './ArticleReaderView.tsx';
+import { CurateModal } from './CurateModal.tsx';
+import { DepthFocusCarousel } from './DepthFocusCarousel.tsx';
 import { PlatformIcon, PulseLogoMark } from './PlatformIcon.tsx';
+import { SettingsModal } from './SettingsModal.tsx';
 import { StoryPreviewModal } from './StoryPreviewModal.tsx';
 
 interface DashboardProps {
   settings: AppSettings;
   items: FeedItem[];
-  sourceStatuses: SourceStatus[];
-  filteredOutCount: number;
   isLoading: boolean;
   retryStatus?: string | null;
   error: string | null;
-  nowMs: number;
-  serverResendConfigured?: boolean;
+  nowMs?: number;
   onRefreshNow: () => Promise<void>;
-  onOpenSettings: () => void;
+  onTopicsChange: (topics: TopicItem[]) => void;
+  onSourcesChange: (sources: SocialSource[]) => void;
+  onPreviewTheme: (themeId: string | null) => void;
+  onApplyTheme: (themeId: string) => void;
+  onAutoAdaptiveToggle: (enabled: boolean) => void;
+  onSavePreferences: (schedule: ScheduleConfig) => Promise<void>;
+  onClearCachedFeed: () => void;
+  onResetAllSettings: () => void;
+  onEnrichFeedItem: (itemId: string, patch: Partial<FeedItem>) => void;
 }
 
-type NavTab = 'home' | 'search' | 'saved' | 'settings';
+type BaseViewTab = 'home' | 'search' | 'saved';
+type NavHighlightTab = 'home' | 'curate' | 'search' | 'saved' | 'settings';
 
 export const Dashboard: React.FC<DashboardProps> = ({
   settings,
   items,
-  sourceStatuses,
-  filteredOutCount,
   isLoading,
   retryStatus = null,
   error,
-  nowMs,
-  serverResendConfigured = false,
   onRefreshNow,
-  onOpenSettings,
+  onTopicsChange,
+  onSourcesChange,
+  onPreviewTheme,
+  onApplyTheme,
+  onAutoAdaptiveToggle,
+  onSavePreferences,
+  onClearCachedFeed,
+  onResetAllSettings,
+  onEnrichFeedItem,
 }) => {
   // Navigation & Filtering State
-  const [activeNavTab, setActiveNavTab] = useState<NavTab>('home');
+  const [activeBaseTab, setActiveBaseTab] = useState<BaseViewTab>('home');
+  const [curateOpen, setCurateOpen] = useState(false);
+  const [settingsOpen, setSettingsOpen] = useState(false);
+
   const [filterPlatform, setFilterPlatform] = useState<'all' | PlatformId>('all');
   const [filterTopic, setFilterTopic] = useState<string>('all');
   const [filterCreator, setFilterCreator] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
-  const [showDiagnostics, setShowDiagnostics] = useState(false);
+  const [topStoryIndex, setTopStoryIndex] = useState<number>(0);
+  const [brandPulseFeedback, setBrandPulseFeedback] = useState(false);
   const [showIOSInstall, setShowIOSInstall] = useState(false);
 
   // Modal / Reader State
-  const [previewStory, setPreviewStory] = useState<FeedItem | null>(null);
-  const [readerStory, setReaderStory] = useState<FeedItem | null>(null);
+  const [previewStoryId, setPreviewStoryId] = useState<string | null>(null);
+  const [readerStoryId, setReaderStoryId] = useState<string | null>(null);
 
   // Bookmarked / Saved Stories State (persisted to localStorage)
   const [savedStoryIds, setSavedStoryIds] = useState<string[]>(() => {
@@ -96,9 +105,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
   });
 
   const isOnline = useOnlineStatus();
-  const { isInstallable, isInstalled, isIOS, install } = usePWAInstall();
+  usePWAInstall();
 
-  // Save bookmarked IDs to localStorage
   useEffect(() => {
     try {
       localStorage.setItem('pulsecurate_saved_story_ids', JSON.stringify(savedStoryIds));
@@ -115,11 +123,21 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
   const isStorySaved = (id: string) => savedStoryIds.includes(id);
 
+  // Resolve live item references so background AI enrichment reflects immediately
+  const previewStory = useMemo(
+    () => (previewStoryId ? items.find((i) => i.id === previewStoryId) || null : null),
+    [items, previewStoryId]
+  );
+
+  const readerStory = useMemo(
+    () => (readerStoryId ? items.find((i) => i.id === readerStoryId) || null : null),
+    [items, readerStoryId]
+  );
+
   // Extract unique active creators from sources & items
   const trackedCreators = useMemo(() => {
     const map = new Map<string, { handle: string; name: string; platform: PlatformId }>();
 
-    // From settings sources
     settings.sources.forEach((s) => {
       map.set(s.handle.toLowerCase(), {
         handle: s.handle,
@@ -128,7 +146,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
       });
     });
 
-    // From fetched feed items
     items.forEach((item) => {
       const key = (item.handle || item.accountName).toLowerCase();
       if (!map.has(key)) {
@@ -157,7 +174,10 @@ export const Dashboard: React.FC<DashboardProps> = ({
       if (filterTopic !== 'all' && item.topicTag.toLowerCase() !== filterTopic.toLowerCase()) {
         return false;
       }
-      if (filterCreator && (item.handle || item.accountName).toLowerCase() !== filterCreator.toLowerCase()) {
+      if (
+        filterCreator &&
+        (item.handle || item.accountName).toLowerCase() !== filterCreator.toLowerCase()
+      ) {
         return false;
       }
       if (searchQuery.trim()) {
@@ -172,119 +192,159 @@ export const Dashboard: React.FC<DashboardProps> = ({
     });
   }, [items, filterPlatform, filterTopic, filterCreator, searchQuery]);
 
-  // Top Stories / Curated Picks (top 6 items sorted by relevance)
+  // Top Stories / AI Picks sorted by relevance
   const topStories = useMemo(() => {
-    return [...items]
-      .sort((a, b) => b.relevanceScore - a.relevanceScore)
-      .slice(0, 6);
+    return [...items].sort((a, b) => b.relevanceScore - a.relevanceScore).slice(0, 6);
   }, [items]);
+
+  // Clamp carousel index if topStories length changes
+  useEffect(() => {
+    if (topStories.length === 0) {
+      setTopStoryIndex(0);
+    } else if (topStoryIndex >= topStories.length) {
+      setTopStoryIndex(topStories.length - 1);
+    }
+  }, [topStories.length, topStoryIndex]);
 
   // Saved Stories List
   const savedStories = useMemo(() => {
     return items.filter((item) => savedStoryIds.includes(item.id));
   }, [items, savedStoryIds]);
 
-  const emptyOrErrorSources = useMemo(
-    () => sourceStatuses.filter((s) => s.status !== 'ok'),
-    [sourceStatuses]
+  // Unified interactive brand tap: navigate to default Home feed, scroll to top, and refresh
+  const handleBrandTap = () => {
+    setCurateOpen(false);
+    setSettingsOpen(false);
+    setPreviewStoryId(null);
+    setReaderStoryId(null);
+    setActiveBaseTab('home');
+    setFilterPlatform('all');
+    setFilterTopic('all');
+    setFilterCreator(null);
+    setSearchQuery('');
+    setTopStoryIndex(0);
+    setBrandPulseFeedback(true);
+
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    window.setTimeout(() => setBrandPulseFeedback(false), 950);
+
+    if (isOnline && !isLoading) {
+      void onRefreshNow();
+    }
+  };
+
+  const activeNavHighlight: NavHighlightTab = curateOpen
+    ? 'curate'
+    : settingsOpen
+    ? 'settings'
+    : activeBaseTab;
+
+  const isOverlayOpen = Boolean(
+    previewStory || readerStory || curateOpen || settingsOpen || showIOSInstall
   );
 
-  const pushReady =
-    settings.schedule.pushEnabled &&
-    typeof Notification !== 'undefined' &&
-    Notification.permission === 'granted';
-  const emailConfigured = Boolean(settings.schedule.webhookUrl.trim() || serverResendConfigured);
-  const emailReady =
-    settings.schedule.emailEnabled &&
-    Boolean(settings.schedule.emailAddress.trim()) &&
-    emailConfigured;
-  const autoSyncReady = settings.schedule.autoSyncOnOpen;
+  const navItems: Array<{
+    id: NavHighlightTab;
+    label: string;
+    icon: React.FC<{ className?: string }>;
+    badge?: number;
+  }> = [
+    { id: 'home', label: 'Home', icon: Home },
+    { id: 'curate', label: 'Curate', icon: Layers },
+    { id: 'search', label: 'Search', icon: Search },
+    {
+      id: 'saved',
+      label: 'Saved',
+      icon: Bookmark,
+      badge: savedStoryIds.length > 0 ? savedStoryIds.length : undefined,
+    },
+    { id: 'settings', label: 'Settings', icon: Settings },
+  ];
 
-  const nextScheduleLabel = formatScheduledLabel(settings.nextScheduledTimestamp);
-  const countdownStr = formatCountdown(settings.nextScheduledTimestamp, nowMs);
+  const handleNavClick = (tabId: NavHighlightTab) => {
+    if (tabId === 'curate') {
+      setSettingsOpen(false);
+      setCurateOpen((prev) => !prev);
+      return;
+    }
+    if (tabId === 'settings') {
+      setCurateOpen(false);
+      setSettingsOpen((prev) => !prev);
+      return;
+    }
+    setCurateOpen(false);
+    setSettingsOpen(false);
+    setActiveBaseTab(tabId);
+    if (typeof window !== 'undefined') {
+      window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+  };
 
   return (
     <div className="min-h-dvh bg-transparent text-[var(--pc-text)] flex flex-col pb-28">
-      {/* =========================================================================
-          1. Header (Left Screen Style)
-          - Bold left-aligned PulseCurate title with decorative organic corner accent shape
-          - Circular quick-refresh/shuffle icon button on top right
-          ========================================================================= */}
-      <header className="sticky top-0 z-30 liquid-glass-header">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 h-18 flex items-center justify-between gap-4">
-          {/* Bold Left-Aligned Title with Organic Corner Accent Shape */}
-          <div className="flex items-center gap-3">
-            {/* Organic corner accent shape */}
+      {/* Main Content Area (scrolls naturally; inert when modal/reader overlay is active) */}
+      <main
+        inert={isOverlayOpen ? true : undefined}
+        className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 pt-5 pb-6 space-y-6"
+      >
+        {/* =========================================================================
+            1. Centered Top Branding ONLY (Normal Scroll Flow — Not Fixed/Sticky)
+               Interactive unified button: navigates to Home + scrolls top + refreshes
+            ========================================================================= */}
+        <div className="flex flex-col items-center justify-center pt-1 pb-2 gap-2">
+          <motion.button
+            type="button"
+            whileHover={{ scale: 1.03 }}
+            whileTap={{ scale: 0.95 }}
+            onClick={handleBrandTap}
+            aria-label="PulseCurate — Return to Home feed and refresh"
+            className="inline-flex items-center gap-3 px-4 py-2 rounded-full transition-all cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--pc-accent)] focus-visible:outline-offset-4 group"
+          >
             <div className="relative flex items-center justify-center">
               <div
-                className="w-10 h-10 rounded-2xl liquid-glass flex items-center justify-center shadow-lg relative overflow-hidden group"
+                className={`w-10 h-10 rounded-2xl liquid-glass flex items-center justify-center shadow-lg relative overflow-hidden transition-transform duration-300 ${
+                  brandPulseFeedback || isLoading ? 'scale-105 ring-2 ring-[var(--pc-accent)]/60' : ''
+                }`}
                 style={{
                   background:
                     'radial-gradient(circle at 30% 30%, var(--pc-accent-soft), var(--glass-tint))',
                   border: '1px solid var(--glass-border-top)',
                 }}
               >
-                {/* Organic curved shape background highlight */}
                 <div className="absolute -top-2 -left-2 w-7 h-7 bg-[var(--pc-accent)]/30 rounded-full blur-sm" />
-                <PulseLogoMark className="w-5 h-5 text-[var(--pc-accent)] relative z-10" />
+                <PulseLogoMark
+                  className={`w-5 h-5 text-[var(--pc-accent)] relative z-10 transition-transform ${
+                    isLoading || brandPulseFeedback ? 'animate-pulse scale-110' : ''
+                  }`}
+                />
               </div>
-              {/* Organic corner accent decoration tag */}
-              <div className="absolute -bottom-1 -right-1 w-3 h-3 rounded-full bg-[var(--pc-accent)] border-2 border-[var(--pc-bg)] shadow-sm" />
+              {(isLoading || brandPulseFeedback) && (
+                <span className="absolute -inset-1 rounded-2xl border border-[var(--pc-accent)]/50 animate-ping pointer-events-none" />
+              )}
             </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="font-display text-xl sm:text-2xl font-black tracking-tight text-[var(--pc-text)]">
-                  PulseCurate
-                </h1>
-                <span className="hidden sm:inline-block text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full liquid-pill text-[var(--pc-accent)]">
-                  visionOS
-                </span>
-              </div>
-              <p className="text-[11px] text-[var(--pc-text-muted)] font-medium hidden sm:block">
-                AI Social Intelligence &amp; Editorial Digest
-              </p>
-            </div>
-          </div>
+            <span className="font-display text-2xl sm:text-[26px] font-black tracking-tight text-[var(--pc-text)] group-hover:text-[var(--pc-accent)] transition-colors">
+              PulseCurate
+            </span>
+          </motion.button>
 
-          {/* Top Right Actions: Countdown Badge + Circular Quick-Refresh Button + Settings */}
-          <div className="flex items-center gap-2.5">
-            {/* Next Scheduled Countdown Pill */}
-            <div className="hidden md:flex items-center gap-2 text-xs text-[var(--pc-text-muted)] liquid-pill px-3 py-1.5">
-              <Clock className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
-              <span>Next: {nextScheduleLabel}</span>
-              <span className="font-mono-tabular text-[var(--pc-text)] font-semibold">
-                ({countdownStr})
-              </span>
-            </div>
-
-            {/* Circular Quick-Refresh / Shuffle Icon Button */}
-            <motion.button
-              whileTap={{ scale: 0.92 }}
-              onClick={() => onRefreshNow()}
-              disabled={isLoading || !isOnline}
-              className="w-10 h-10 rounded-full liquid-glass flex items-center justify-center text-[var(--pc-text)] hover:text-[var(--pc-accent)] hover:border-[var(--pc-accent)] transition-all shadow-md disabled:opacity-50 cursor-pointer"
-              title="Quick Refresh & Summarize Feed"
-              aria-label="Refresh and summarize news feed"
+          {/* Clean Visual Refresh Feedback Chip */}
+          {(isLoading || brandPulseFeedback) && (
+            <motion.div
+              initial={{ opacity: 0, y: -4 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full liquid-pill text-[11px] font-medium text-[var(--pc-accent)]"
+              role="status"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoading ? 'animate-spin text-[var(--pc-accent)]' : ''}`} />
-            </motion.button>
-
-            {/* Top-Right Settings Gear */}
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              aria-label="Open Settings"
-              className="w-10 h-10 rounded-full liquid-glass flex items-center justify-center text-[var(--pc-text)] hover:border-[var(--pc-accent)] transition-all shadow-md cursor-pointer"
-            >
-              <Settings className="w-4 h-4" />
-            </button>
-          </div>
+              <RefreshCw className="w-3 h-3 animate-spin" />
+              <span>{retryStatus || 'Refreshing curated feed...'}</span>
+            </motion.div>
+          )}
         </div>
-      </header>
 
-      {/* Main Content Area */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 py-6 space-y-7">
         {/* Offline Banner */}
         {!isOnline && (
           <div
@@ -295,17 +355,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <span>
               You are offline. Showing cached stories. Auto-Sync will fetch fresh digest when connection restores.
             </span>
-          </div>
-        )}
-
-        {/* Retry / Status Banner */}
-        {isLoading && retryStatus && (
-          <div
-            className="liquid-glass rounded-2xl px-4 py-3 text-xs text-[var(--pc-text-muted)] flex items-center gap-2.5"
-            role="status"
-          >
-            <RefreshCw className="w-3.5 h-3.5 animate-spin text-[var(--pc-accent)] shrink-0" />
-            <span>{retryStatus}</span>
           </div>
         )}
 
@@ -322,7 +371,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
             <button
               type="button"
               onClick={() => onRefreshNow()}
-              className="liquid-pill px-3 py-1.5 text-xs font-semibold text-[var(--pc-text)]"
+              className="liquid-pill px-3 py-1.5 text-xs font-semibold text-[var(--pc-text)] shrink-0 cursor-pointer"
             >
               Retry
             </button>
@@ -332,85 +381,91 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* =========================================================================
             VIEW: HOME TAB
             ========================================================================= */}
-        {activeNavTab === 'home' && (
+        {activeBaseTab === 'home' && (
           <>
-            {/* Top Stories Carousel ("Top Stories" / "Curated Picks") */}
+            {/* Top Stories Depth-Focus Carousel */}
             {topStories.length > 0 && !isLoading && (
-              <section className="space-y-3.5">
+              <section className="space-y-3">
+                {/* Clean Editorial Header: Newspaper Icon + "Top Stories" Only (No "6 picks" counter) */}
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <Sparkles className="w-4 h-4 text-[var(--pc-accent)]" />
+                    <Newspaper className="w-4 h-4 text-[var(--pc-accent)]" aria-hidden="true" />
                     <h2 className="font-display text-base sm:text-lg font-bold text-[var(--pc-text)]">
                       Top Stories
                     </h2>
-                    <span className="text-xs text-[var(--pc-text-muted)] font-normal hidden sm:inline">
-                      • Curated Picks
-                    </span>
                   </div>
-                  <span className="text-xs text-[var(--pc-text-muted)] font-mono-tabular">
-                    {topStories.length} picks
-                  </span>
                 </div>
 
-                {/* Horizontal Scrollable Carousel Container */}
-                <div className="flex items-stretch gap-4 overflow-x-auto pb-2 pt-1 no-scrollbar snap-x">
-                  {topStories.map((story) => {
+                {/* Focused Center Card + Blurred Scaled Side Cards + Strict 1-Card Stepping + Dynamic Dots */}
+                <DepthFocusCarousel
+                  items={topStories}
+                  activeIndex={topStoryIndex}
+                  onIndexChange={setTopStoryIndex}
+                  getKey={(story) => `top-${story.id}`}
+                  ariaLabel="Top Stories"
+                  itemLabel={(story, idx, total) => `${story.headline} (${idx + 1} of ${total})`}
+                  maxCardWidth={380}
+                  cardWidthRatio={0.74}
+                  gap={14}
+                  showPaginationDots={true}
+                  className="-mx-4 sm:mx-auto sm:max-w-[680px]"
+                  onActiveItemClick={(story) => setPreviewStoryId(story.id)}
+                  renderCard={(story, { isActive }) => {
                     const coverImg = getEditorialImage(story);
                     const readTime = getEstimatedReadTime(story);
                     const pInfo = getPlatformInfo(story.platform);
 
                     return (
-                      <motion.div
-                        key={`top-${story.id}`}
-                        whileHover={{ y: -4 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setPreviewStory(story)}
-                        className="w-64 sm:w-72 shrink-0 snap-start liquid-glass-card rounded-[22px] overflow-hidden p-3 cursor-pointer flex flex-col justify-between group shadow-lg"
+                      <article
+                        className={`liquid-glass-card rounded-[26px] overflow-hidden p-3.5 flex flex-col justify-between group shadow-2xl transition-shadow ${
+                          isActive
+                            ? 'ring-1 ring-[var(--pc-accent)]/45 shadow-[0_24px_50px_-12px_rgba(0,0,0,0.58)]'
+                            : ''
+                        }`}
                       >
-                        {/* Rounded-Square (22px) Illustrated / Thumbnail Card */}
-                        <div className="relative h-36 w-full rounded-[18px] overflow-hidden mb-3 bg-black/30">
+                        <div className="relative h-40 sm:h-44 w-full rounded-[20px] overflow-hidden mb-3 bg-black/30">
                           <img
                             src={coverImg}
                             alt={story.headline}
+                            draggable={false}
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                             loading="lazy"
                           />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
+                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
 
-                          {/* Platform badge on corner */}
-                          <div className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold text-white backdrop-blur-md"
-                               style={{ backgroundColor: `${pInfo.brandColor}d0` }}>
+                          <div
+                            className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white backdrop-blur-md shadow-sm"
+                            style={{ backgroundColor: `${pInfo.brandColor}d0` }}
+                          >
                             <PlatformIcon platform={story.platform} className="w-3 h-3" />
                             <span>{pInfo.shortName}</span>
                           </div>
 
-                          <div className="absolute bottom-2 right-2.5 text-[10px] font-medium text-white/90 backdrop-blur-md px-2 py-0.5 rounded-full bg-black/40">
+                          <div className="absolute bottom-2.5 right-2.5 text-[10px] font-medium text-white/95 backdrop-blur-md px-2.5 py-0.5 rounded-full bg-black/45">
                             {readTime}
                           </div>
                         </div>
 
-                        {/* Bold 1-Line Headline */}
-                        <h3 className="font-display font-bold text-sm text-[var(--pc-text)] leading-snug line-clamp-2 mb-2 group-hover:text-[var(--pc-accent)] transition-colors">
+                        <h3 className="font-display font-bold text-sm sm:text-base text-[var(--pc-text)] leading-snug line-clamp-2 mb-2.5 group-hover:text-[var(--pc-accent)] transition-colors">
                           {story.headline}
                         </h3>
 
-                        {/* Subtle Source / Read-Time Subtitles Underneath */}
-                        <div className="flex items-center justify-between text-[11px] text-[var(--pc-text-muted)] pt-1 border-t border-white/5">
+                        <div className="flex items-center justify-between text-[11px] text-[var(--pc-text-muted)] pt-2 border-t border-[var(--pc-border)]">
                           <span className="truncate font-medium">@{story.accountName}</span>
                           <span className="shrink-0 text-[var(--pc-accent)] font-semibold">
                             {story.topicTag}
                           </span>
                         </div>
-                      </motion.div>
+                      </article>
                     );
-                  })}
-                </div>
+                  }}
+                />
               </section>
             )}
 
-            {/* Tracked Creators Row ("Top Channels") */}
+            {/* Tracked Creators Row ("Top Channels") — Smooth & Responsive */}
             {trackedCreators.length > 0 && (
-              <section className="space-y-3">
+              <section className="space-y-2.5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
                     <Radio className="w-4 h-4 text-[var(--pc-accent)]" />
@@ -419,8 +474,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </h2>
                     {filterCreator && (
                       <button
+                        type="button"
                         onClick={() => setFilterCreator(null)}
-                        className="text-xs text-[var(--pc-accent)] hover:underline ml-2 flex items-center gap-1"
+                        className="text-xs text-[var(--pc-accent)] hover:underline ml-2 flex items-center gap-1 cursor-pointer"
                       >
                         (Clear: @{filterCreator} <X className="w-3 h-3" />)
                       </button>
@@ -431,36 +487,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   </span>
                 </div>
 
-                {/* Horizontal Avatar Row with Colorful Background Rings */}
-                <div className="flex items-center gap-4 overflow-x-auto pb-2 pt-1 no-scrollbar">
+                <div
+                  className="flex items-center gap-4 overflow-x-auto pb-3 pt-2 px-1 no-scrollbar scroll-smooth snap-x snap-proximity"
+                  style={{
+                    overscrollBehaviorX: 'contain',
+                    WebkitOverflowScrolling: 'touch',
+                  }}
+                >
                   {trackedCreators.map((creator) => {
                     const pInfo = getPlatformInfo(creator.platform);
-                    const isSelected = filterCreator?.toLowerCase() === creator.handle.toLowerCase();
+                    const isSelected =
+                      filterCreator?.toLowerCase() === creator.handle.toLowerCase();
 
                     return (
-                      <button
+                      <motion.button
                         key={creator.handle}
+                        type="button"
+                        whileHover={{ y: -2, scale: 1.04 }}
+                        whileTap={{ scale: 0.93 }}
+                        transition={{ type: 'spring', stiffness: 380, damping: 24 }}
                         onClick={() =>
                           setFilterCreator(isSelected ? null : creator.handle)
                         }
-                        className="flex flex-col items-center gap-1.5 shrink-0 group focus:outline-none"
+                        className="flex flex-col items-center gap-1.5 shrink-0 snap-start group focus:outline-none cursor-pointer"
                       >
-                        {/* Circular Avatar with Colorful Background Ring */}
                         <div
                           className={`relative w-14 h-14 rounded-full p-0.5 transition-all duration-300 ${
                             isSelected
-                              ? 'ring-3 ring-[var(--pc-accent)] ring-offset-2 ring-offset-[var(--pc-bg)] scale-105'
-                              : 'hover:scale-105'
+                              ? 'ring-3 ring-[var(--pc-accent)] ring-offset-2 ring-offset-[var(--pc-bg)] scale-105 shadow-lg'
+                              : 'shadow-md'
                           }`}
                           style={{
                             background: `linear-gradient(135deg, ${pInfo.brandColor}, var(--pc-accent))`,
                           }}
                         >
-                          <div className="w-full h-full rounded-full bg-[var(--pc-surface)] flex items-center justify-center font-bold text-white text-sm shadow-inner overflow-hidden border border-white/20">
+                          <div className="w-full h-full rounded-full bg-[var(--pc-surface)] flex items-center justify-center font-bold text-[var(--pc-text)] text-sm shadow-inner overflow-hidden border border-white/20">
                             {creator.name.charAt(0).toUpperCase()}
                           </div>
 
-                          {/* Corner Platform Badge */}
                           <div
                             className="absolute -bottom-0.5 -right-0.5 w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] shadow-md border border-[var(--pc-bg)]"
                             style={{ backgroundColor: pInfo.brandColor }}
@@ -469,9 +533,8 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           </div>
                         </div>
 
-                        {/* Creator Name Underneath */}
                         <span
-                          className={`text-[11px] font-medium max-w-[70px] truncate text-center ${
+                          className={`text-[11px] font-medium max-w-[74px] truncate text-center transition-colors ${
                             isSelected
                               ? 'text-[var(--pc-accent)] font-bold'
                               : 'text-[var(--pc-text-muted)] group-hover:text-[var(--pc-text)]'
@@ -479,16 +542,19 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         >
                           {creator.name}
                         </span>
-                      </button>
+                      </motion.button>
                     );
                   })}
                 </div>
               </section>
             )}
 
-            {/* Topic Filter Pills (Horizontal Pill Bar) */}
+            {/* Topic Filter Pills */}
             <section className="space-y-3">
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
+              <div
+                className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar"
+                style={{ overscrollBehaviorX: 'contain' }}
+              >
                 <button
                   type="button"
                   onClick={() => setFilterTopic('all')}
@@ -507,9 +573,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     <button
                       key={topic.id}
                       type="button"
-                      onClick={() =>
-                        setFilterTopic(active ? 'all' : topic.label)
-                      }
+                      onClick={() => setFilterTopic(active ? 'all' : topic.label)}
                       className={`min-h-[36px] px-4 py-1.5 text-xs font-semibold whitespace-nowrap shrink-0 transition-all cursor-pointer ${
                         active
                           ? 'liquid-pill-active'
@@ -525,12 +589,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* Platform Filter Chips & Search Bar */}
             <section className="flex flex-col sm:flex-row items-center justify-between gap-3">
-              {/* Platform chips */}
-              <div className="flex items-center gap-2 overflow-x-auto pb-1 w-full sm:w-auto no-scrollbar">
+              <div
+                className="flex items-center gap-2 overflow-x-auto pb-1 w-full sm:w-auto no-scrollbar"
+                style={{ overscrollBehaviorX: 'contain' }}
+              >
                 <button
                   type="button"
                   onClick={() => setFilterPlatform('all')}
-                  className={`min-h-[32px] px-3 py-1 text-xs font-medium whitespace-nowrap shrink-0 ${
+                  className={`min-h-[32px] px-3 py-1 text-xs font-medium whitespace-nowrap shrink-0 cursor-pointer ${
                     filterPlatform === 'all'
                       ? 'liquid-pill-active'
                       : 'liquid-pill text-[var(--pc-text-muted)]'
@@ -546,7 +612,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       key={pid}
                       type="button"
                       onClick={() => setFilterPlatform(active ? 'all' : pid)}
-                      className={`min-h-[32px] px-3 py-1 text-xs font-medium whitespace-nowrap shrink-0 flex items-center gap-1.5 ${
+                      className={`min-h-[32px] px-3 py-1 text-xs font-medium whitespace-nowrap shrink-0 flex items-center gap-1.5 cursor-pointer ${
                         active
                           ? 'liquid-pill-active'
                           : 'liquid-pill text-[var(--pc-text-muted)]'
@@ -559,7 +625,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 })}
               </div>
 
-              {/* In-feed search */}
               <div className="relative w-full sm:w-64 shrink-0">
                 <Search className="w-3.5 h-3.5 text-[var(--pc-text-muted)] absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
                 <input
@@ -574,11 +639,11 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
             {/* Loading Skeletons */}
             {isLoading && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {Array.from({ length: 6 }).map((_, idx) => (
                   <div
                     key={idx}
-                    className="liquid-glass-card rounded-3xl p-5 space-y-4 animate-pulse"
+                    className="tactile-pillow-card p-5 space-y-4 animate-pulse"
                   >
                     <div className="h-40 w-full rounded-2xl bg-[var(--pc-surface-elevated)]" />
                     <div className="h-5 w-4/5 rounded bg-[var(--pc-surface-elevated)]" />
@@ -591,9 +656,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </div>
             )}
 
-            {/* Main Editorial Feed Cards */}
+            {/* Main Tactile 3D Floating / Pillowy Editorial Feed Cards */}
             {!isLoading && filteredItems.length > 0 && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 sm:gap-7">
                 {filteredItems.map((item, idx) => {
                   const pInfo = getPlatformInfo(item.platform);
                   const coverImg = getEditorialImage(item);
@@ -606,13 +671,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       key={item.id}
                       initial={{ opacity: 0, y: 14 }}
                       animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.25) }}
-                      className="liquid-glass-card rounded-[28px] overflow-hidden flex flex-col justify-between group shadow-xl border border-white/10"
+                      transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.22) }}
+                      className="tactile-pillow-card overflow-hidden flex flex-col justify-between group"
                     >
-                      {/* Card Cover Image with Gradient */}
+                      {/* Card Cover Image */}
                       <div
                         className="relative h-44 w-full overflow-hidden bg-black/30 cursor-pointer"
-                        onClick={() => setPreviewStory(item)}
+                        onClick={() => setPreviewStoryId(item.id)}
                       >
                         <img
                           src={coverImg}
@@ -622,7 +687,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                         />
                         <div className="absolute inset-0 bg-gradient-to-t from-[var(--glass-tint)] via-transparent to-black/30" />
 
-                        {/* Top Badges */}
                         <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
                           <span
                             className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-md backdrop-blur-md"
@@ -633,21 +697,24 @@ export const Dashboard: React.FC<DashboardProps> = ({
                           </span>
 
                           <button
+                            type="button"
                             onClick={(e) => {
                               e.stopPropagation();
                               toggleSaveStory(item);
                             }}
-                            className={`p-2 rounded-full liquid-glass backdrop-blur-md transition-all ${
-                              isSaved ? 'text-[var(--pc-accent)]' : 'text-white/80 hover:text-white'
+                            className={`p-2 rounded-full liquid-glass backdrop-blur-md transition-all cursor-pointer ${
+                              isSaved
+                                ? 'text-[var(--pc-accent)]'
+                                : 'text-white/85 hover:text-white'
                             }`}
                             title={isSaved ? 'Saved' : 'Save Story'}
+                            aria-label={isSaved ? 'Remove saved story' : 'Save story'}
                           >
                             <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
                           </button>
                         </div>
 
-                        {/* Read Time on Bottom Right of Cover */}
-                        <div className="absolute bottom-2.5 right-3 text-[11px] font-medium text-white/90 backdrop-blur-md px-2.5 py-0.5 rounded-full bg-black/40 flex items-center gap-1">
+                        <div className="absolute bottom-2.5 right-3 text-[11px] font-medium text-white/90 backdrop-blur-md px-2.5 py-0.5 rounded-full bg-black/45 flex items-center gap-1">
                           <Clock className="w-3 h-3" />
                           <span>{readTime}</span>
                         </div>
@@ -656,7 +723,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       {/* Card Content */}
                       <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-4">
                         <div className="space-y-3">
-                          {/* Channel Attribution & Date */}
                           <div className="flex items-center justify-between text-xs text-[var(--pc-text-muted)]">
                             <span className="font-semibold text-[var(--pc-text)] truncate">
                               @{item.accountName}
@@ -666,15 +732,13 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             </span>
                           </div>
 
-                          {/* Bold Headline */}
                           <h2
-                            onClick={() => setPreviewStory(item)}
+                            onClick={() => setPreviewStoryId(item.id)}
                             className="font-display text-base sm:text-lg font-bold leading-snug text-[var(--pc-text)] group-hover:text-[var(--pc-accent)] transition-colors cursor-pointer line-clamp-2"
                           >
                             {item.headline}
                           </h2>
 
-                          {/* Concise Takeaways Bullets */}
                           <ul className="space-y-1.5 text-xs sm:text-sm text-[var(--pc-text-muted)] leading-relaxed list-disc pl-4">
                             {item.takeaways.slice(0, 2).map((bullet, bIdx) => (
                               <li key={bIdx} className="line-clamp-2">
@@ -686,26 +750,28 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                         {/* Card Footer Actions */}
                         <div className="pt-3 border-t border-[var(--pc-border)] flex items-center justify-between gap-2">
-                          <div className="flex items-center gap-2 text-xs text-[var(--pc-text-muted)]">
-                            <span className="flex items-center gap-1">
+                          <div className="flex items-center gap-2 text-xs text-[var(--pc-text-muted)] min-w-0">
+                            <span className="flex items-center gap-1 shrink-0">
                               <Heart className="w-3 h-3 text-red-400" />
                               {stats.likes}
                             </span>
                             <span>•</span>
-                            <span className="text-[var(--pc-accent)] font-medium">
+                            <span className="text-[var(--pc-accent)] font-medium truncate">
                               {item.topicTag}
                             </span>
                           </div>
 
-                          <div className="flex items-center gap-1.5">
+                          <div className="flex items-center gap-1.5 shrink-0">
                             <button
-                              onClick={() => setPreviewStory(item)}
-                              className="px-3 py-1.5 rounded-full liquid-pill text-xs font-semibold hover:border-[var(--pc-accent)] transition-all cursor-pointer"
+                              type="button"
+                              onClick={() => setPreviewStoryId(item.id)}
+                              className="px-3 py-1.5 rounded-full liquid-pill text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] transition-all cursor-pointer"
                             >
                               Preview
                             </button>
                             <button
-                              onClick={() => setReaderStory(item)}
+                              type="button"
+                              onClick={() => setReaderStoryId(item.id)}
                               className="px-3 py-1.5 rounded-full liquid-btn-primary text-xs font-semibold cursor-pointer"
                             >
                               Read
@@ -727,11 +793,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 </h3>
                 <p className="text-sm text-[var(--pc-text-muted)] max-w-md mx-auto">
                   {items.length === 0
-                    ? 'Click the top refresh button to fetch real updates from your active channels and generate your AI editorial digest.'
+                    ? 'Tap PulseCurate above or Refresh & Summarize Now below to fetch real updates from your active channels.'
                     : 'Try clearing your creator/topic filters or search query.'}
                 </p>
-                <div className="flex items-center justify-center gap-3 pt-2">
-                  {(filterTopic !== 'all' || filterCreator || searchQuery || filterPlatform !== 'all') && (
+                <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+                  {(filterTopic !== 'all' ||
+                    filterCreator ||
+                    searchQuery ||
+                    filterPlatform !== 'all') && (
                     <button
                       type="button"
                       onClick={() => {
@@ -762,9 +831,9 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* =========================================================================
             VIEW: SEARCH TAB
             ========================================================================= */}
-        {activeNavTab === 'search' && (
+        {activeBaseTab === 'search' && (
           <div className="space-y-6 max-w-4xl mx-auto">
-            <div className="text-center space-y-2 py-4">
+            <div className="text-center space-y-2 py-2">
               <h2 className="font-display text-2xl font-black text-[var(--pc-text)]">
                 Search &amp; Discover
               </h2>
@@ -773,7 +842,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               </p>
             </div>
 
-            {/* Large Search Input */}
             <div className="relative">
               <Search className="w-5 h-5 text-[var(--pc-accent)] absolute left-4 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
@@ -786,7 +854,6 @@ export const Dashboard: React.FC<DashboardProps> = ({
               />
             </div>
 
-            {/* Search Results */}
             <div className="space-y-4 pt-2">
               <div className="text-xs font-bold uppercase tracking-wider text-[var(--pc-text-muted)]">
                 Matching Stories ({filteredItems.length})
@@ -795,12 +862,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
               {filteredItems.map((item) => (
                 <div
                   key={item.id}
-                  onClick={() => setPreviewStory(item)}
-                  className="liquid-glass-card rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer hover:border-[var(--pc-accent)] transition-all"
+                  onClick={() => setPreviewStoryId(item.id)}
+                  className="tactile-pillow-card rounded-2xl p-4 sm:p-5 flex items-center justify-between gap-4 cursor-pointer transition-all"
                 >
                   <div className="space-y-1 min-w-0">
                     <div className="flex items-center gap-2 text-xs text-[var(--pc-text-muted)]">
-                      <span className="font-semibold text-[var(--pc-accent)]">@{item.accountName}</span>
+                      <span className="font-semibold text-[var(--pc-accent)]">
+                        @{item.accountName}
+                      </span>
                       <span>•</span>
                       <span>{item.topicTag}</span>
                     </div>
@@ -809,7 +878,14 @@ export const Dashboard: React.FC<DashboardProps> = ({
                     </h3>
                   </div>
 
-                  <button className="liquid-btn-primary px-3.5 py-1.5 text-xs font-semibold shrink-0">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setReaderStoryId(item.id);
+                    }}
+                    className="liquid-btn-primary px-3.5 py-1.5 text-xs font-semibold shrink-0 cursor-pointer"
+                  >
                     Read
                   </button>
                 </div>
@@ -821,16 +897,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
         {/* =========================================================================
             VIEW: SAVED STORIES TAB
             ========================================================================= */}
-        {activeNavTab === 'saved' && (
+        {activeBaseTab === 'saved' && (
           <div className="space-y-6 max-w-4xl mx-auto">
-            <div className="flex items-center justify-between pb-2 border-b border-white/10">
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--pc-border)]">
               <div className="flex items-center gap-2">
                 <Bookmark className="w-5 h-5 text-[var(--pc-accent)] fill-current" />
                 <h2 className="font-display text-xl sm:text-2xl font-black text-[var(--pc-text)]">
                   Saved Stories
                 </h2>
               </div>
-              <span className="liquid-pill px-3 py-1 text-xs font-mono font-bold">
+              <span className="liquid-pill px-3 py-1 text-xs font-mono font-bold text-[var(--pc-text)]">
                 {savedStories.length} Bookmarked
               </span>
             </div>
@@ -838,13 +914,16 @@ export const Dashboard: React.FC<DashboardProps> = ({
             {savedStories.length === 0 ? (
               <div className="liquid-glass rounded-3xl p-10 text-center space-y-3">
                 <Bookmark className="w-8 h-8 text-[var(--pc-text-muted)] mx-auto" />
-                <h3 className="font-bold text-base text-[var(--pc-text)]">No Saved Stories Yet</h3>
+                <h3 className="font-bold text-base text-[var(--pc-text)]">
+                  No Saved Stories Yet
+                </h3>
                 <p className="text-xs sm:text-sm text-[var(--pc-text-muted)] max-w-sm mx-auto">
                   Bookmark key articles from your Home Feed to read offline or review anytime.
                 </p>
                 <button
-                  onClick={() => setActiveNavTab('home')}
-                  className="liquid-btn-primary px-5 py-2 text-xs font-semibold"
+                  type="button"
+                  onClick={() => setActiveBaseTab('home')}
+                  className="liquid-btn-primary px-5 py-2 text-xs font-semibold cursor-pointer"
                 >
                   Browse Home Feed
                 </button>
@@ -854,18 +933,20 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {savedStories.map((item) => (
                   <div
                     key={item.id}
-                    className="liquid-glass-card rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
+                    className="tactile-pillow-card rounded-2xl p-5 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4"
                   >
                     <div className="space-y-1.5 min-w-0">
                       <div className="flex items-center gap-2 text-xs text-[var(--pc-text-muted)]">
-                        <span className="font-semibold text-[var(--pc-accent)]">@{item.accountName}</span>
+                        <span className="font-semibold text-[var(--pc-accent)]">
+                          @{item.accountName}
+                        </span>
                         <span>•</span>
                         <span>{item.topicTag}</span>
                         <span>•</span>
                         <span>{getEstimatedReadTime(item)}</span>
                       </div>
                       <h3
-                        onClick={() => setPreviewStory(item)}
+                        onClick={() => setPreviewStoryId(item.id)}
                         className="font-bold text-base text-[var(--pc-text)] hover:text-[var(--pc-accent)] cursor-pointer"
                       >
                         {item.headline}
@@ -874,15 +955,18 @@ export const Dashboard: React.FC<DashboardProps> = ({
 
                     <div className="flex items-center gap-2 shrink-0">
                       <button
-                        onClick={() => setReaderStory(item)}
-                        className="liquid-btn-primary px-4 py-2 text-xs font-semibold"
+                        type="button"
+                        onClick={() => setReaderStoryId(item.id)}
+                        className="liquid-btn-primary px-4 py-2 text-xs font-semibold cursor-pointer"
                       >
                         Read
                       </button>
                       <button
+                        type="button"
                         onClick={() => toggleSaveStory(item)}
-                        className="p-2 rounded-full liquid-glass text-red-400 hover:scale-105"
+                        className="p-2 rounded-full liquid-glass text-red-400 hover:scale-105 cursor-pointer"
                         title="Remove bookmark"
+                        aria-label="Remove bookmark"
                       >
                         <X className="w-4 h-4" />
                       </button>
@@ -896,97 +980,152 @@ export const Dashboard: React.FC<DashboardProps> = ({
       </main>
 
       {/* =========================================================================
-          2. Story Preview / Detail View Modal (Middle Screen Style)
+          Story Preview Modal (Tier 1 Medium Summary)
           ========================================================================= */}
       <StoryPreviewModal
         item={previewStory}
         isOpen={Boolean(previewStory)}
         isSaved={previewStory ? isStorySaved(previewStory.id) : false}
-        onClose={() => setPreviewStory(null)}
+        onClose={() => setPreviewStoryId(null)}
         onOpenReader={(item) => {
-          setPreviewStory(null);
-          setReaderStory(item);
+          setPreviewStoryId(null);
+          setReaderStoryId(item.id);
         }}
         onToggleSave={toggleSaveStory}
       />
 
       {/* =========================================================================
-          3. Full Article Reader View & Liquid Glass Control Sheet (Right Screen Style)
+          Full Article Reader View (Tier 2 Executive Analysis & Appearance Sheet)
           ========================================================================= */}
       <ArticleReaderView
         item={readerStory}
         isOpen={Boolean(readerStory)}
         isSaved={readerStory ? isStorySaved(readerStory.id) : false}
-        onBack={() => setReaderStory(null)}
-        onOpenGlobalSettings={onOpenSettings}
+        onBack={() => setReaderStoryId(null)}
         onToggleSave={toggleSaveStory}
+        onEnrichItem={onEnrichFeedItem}
       />
 
       {/* =========================================================================
-          Bottom Navigation Bar (Clean 4-Tab Bar: Home, Search, Saved, Settings)
+          2nd Tab: Levitating Curate Modal (Topics & Sources)
           ========================================================================= */}
-      <nav
-        aria-label="Bottom Navigation"
-        className="fixed bottom-4 left-1/2 -translate-x-1/2 liquid-glass rounded-full px-5 py-2.5 z-40 shadow-2xl flex items-center gap-4 sm:gap-8 border border-white/20 backdrop-blur-3xl"
-      >
-        {/* Tab 1: Home */}
-        <button
-          onClick={() => setActiveNavTab('home')}
-          className={`flex flex-col items-center gap-1 transition-all ${
-            activeNavTab === 'home'
-              ? 'text-[var(--pc-accent)] scale-105 font-bold'
-              : 'text-white/60 hover:text-white'
-          }`}
-        >
-          <Home className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight">Home</span>
-        </button>
+      <CurateModal
+        isOpen={curateOpen}
+        onClose={() => setCurateOpen(false)}
+        topics={settings.topics}
+        sources={settings.sources}
+        onTopicsChange={onTopicsChange}
+        onSourcesChange={onSourcesChange}
+        onRefreshFeed={onRefreshNow}
+        isRefreshing={isLoading}
+      />
 
-        {/* Tab 2: Search */}
-        <button
-          onClick={() => setActiveNavTab('search')}
-          className={`flex flex-col items-center gap-1 transition-all ${
-            activeNavTab === 'search'
-              ? 'text-[var(--pc-accent)] scale-105 font-bold'
-              : 'text-white/60 hover:text-white'
-          }`}
-        >
-          <Search className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight">Search</span>
-        </button>
+      {/* =========================================================================
+          5th Tab: Levitating Settings Modal (Profile, Preferences, Themes, Your Data)
+          ========================================================================= */}
+      <SettingsModal
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        settings={settings}
+        feedItems={items}
+        savedStoryCount={savedStoryIds.length}
+        onPreviewTheme={onPreviewTheme}
+        onApplyTheme={onApplyTheme}
+        onAutoAdaptiveToggle={onAutoAdaptiveToggle}
+        onSavePreferences={onSavePreferences}
+        onClearCachedFeed={onClearCachedFeed}
+        onResetAllSettings={onResetAllSettings}
+      />
 
-        {/* Tab 3: Saved */}
-        <button
-          onClick={() => setActiveNavTab('saved')}
-          className={`relative flex flex-col items-center gap-1 transition-all ${
-            activeNavTab === 'saved'
-              ? 'text-[var(--pc-accent)] scale-105 font-bold'
-              : 'text-white/60 hover:text-white'
-          }`}
+      {/* =========================================================================
+          Apple Liquid Glass 5-Tab Bottom Navigation Bar
+          Order: Home -> Curate -> Search -> Saved -> Settings
+          Includes dynamic theme-synced morphing glass lens indicator!
+          ========================================================================= */}
+      {!readerStory && (
+        <nav
+          aria-label="Bottom Navigation"
+          className={`fixed bottom-4 left-1/2 -translate-x-1/2 ${
+            curateOpen || settingsOpen ? 'z-[55]' : 'z-40'
+          } w-[calc(100%-24px)] max-w-md sm:max-w-lg rounded-full p-1.5 shadow-2xl grid grid-cols-5 items-center transition-all duration-300`}
+          style={{
+            background: 'color-mix(in oklab, var(--glass-tint) 82%, var(--pc-accent-soft))',
+            backdropFilter: 'blur(30px) saturate(200%)',
+            WebkitBackdropFilter: 'blur(30px) saturate(200%)',
+            border: '1px solid var(--pc-border)',
+            borderTopColor: 'var(--glass-border-top)',
+            boxShadow:
+              '0 16px 40px -10px rgba(0, 0, 0, 0.45), 0 0 24px -6px var(--pc-accent-soft), inset 0 1px 1px 0 var(--glass-specular)',
+          }}
         >
-          <Bookmark className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight">Saved</span>
-          {savedStoryIds.length > 0 && (
-            <span className="absolute -top-1 -right-2 w-4 h-4 rounded-full bg-[var(--pc-accent)] text-[var(--pc-accent-fg)] font-bold text-[9px] flex items-center justify-center">
-              {savedStoryIds.length}
-            </span>
-          )}
-        </button>
+          {navItems.map((tab) => {
+            const Icon = tab.icon;
+            const active = activeNavHighlight === tab.id;
+            return (
+              <button
+                key={tab.id}
+                type="button"
+                onClick={() => handleNavClick(tab.id)}
+                aria-current={active ? 'page' : undefined}
+                className={`relative py-2 px-1 rounded-full flex flex-col items-center justify-center gap-0.5 transition-all duration-200 cursor-pointer focus-visible:outline-2 focus-visible:outline-[var(--pc-accent)] ${
+                  active
+                    ? 'text-[var(--pc-accent)] font-bold'
+                    : 'text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
+                }`}
+              >
+                {/* Morphing Liquid Glass Lens Indicator */}
+                {active && (
+                  <motion.span
+                    layoutId="bottom-nav-liquid-lens"
+                    transition={{
+                      type: 'spring',
+                      stiffness: 420,
+                      damping: 30,
+                      mass: 0.75,
+                    }}
+                    className="absolute inset-0.5 rounded-full -z-10"
+                    style={{
+                      background:
+                        'color-mix(in oklab, var(--pc-accent) 24%, var(--glass-tint))',
+                      border:
+                        '1px solid color-mix(in oklab, var(--pc-accent) 52%, var(--glass-border-top))',
+                      borderTopColor: 'var(--glass-border-top)',
+                      boxShadow:
+                        '0 4px 16px -2px var(--pc-accent-soft), inset 0 1px 1.5px 0 var(--glass-specular)',
+                    }}
+                  />
+                )}
 
-        {/* Tab 4: Settings */}
-        <button
-          onClick={() => onOpenSettings()}
-          className="flex flex-col items-center gap-1 text-white/60 hover:text-white transition-all"
-        >
-          <Settings className="w-5 h-5" />
-          <span className="text-[10px] tracking-tight">Settings</span>
-        </button>
-      </nav>
+                <span className="relative">
+                  <Icon
+                    className={`w-5 h-5 transition-transform duration-200 ${
+                      active ? 'scale-110' : 'scale-100'
+                    }`}
+                  />
+                  {tab.badge !== undefined && (
+                    <span className="absolute -top-1.5 -right-2.5 min-w-[16px] h-4 px-1 rounded-full bg-[var(--pc-accent)] text-[var(--pc-accent-fg)] font-bold text-[9px] flex items-center justify-center shadow-sm">
+                      {tab.badge}
+                    </span>
+                  )}
+                </span>
+
+                <span
+                  className={`text-[10px] tracking-tight leading-none transition-all duration-200 ${
+                    active ? 'font-bold opacity-100' : 'font-medium opacity-85'
+                  }`}
+                >
+                  {tab.label}
+                </span>
+              </button>
+            );
+          })}
+        </nav>
+      )}
 
       {/* iOS Safari Install Guide Modal */}
       {showIOSInstall && (
         <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
+          className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-md p-4"
           role="dialog"
           aria-modal="true"
         >

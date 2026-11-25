@@ -4,7 +4,7 @@ import React from 'react';
  * AmbientDynamicBackdrop
  * Renders slow-drifting, organic radial ambient light orbs behind the UI.
  * The orb colors bind directly to --bg-mesh-1, --bg-mesh-2, and --pc-accent-soft,
- * creating vivid optical depth and rich chromatic glass refraction across all 18 themes.
+ * creating vivid optical depth and rich chromatic glass refraction across all 28 themes.
  */
 export const AmbientBackdrop: React.FC = () => {
   return (

@@ -573,7 +573,7 @@ Return ONLY valid JSON matching this schema:
     {
       "accountName": "Display name of account/page",
       "title": "Short title or topic of the post",
-      "content": "Factual summary of what the post actually says (2-3 sentences)",
+      "content": "Factual, detailed summary of what the post actually says (3-5 sentences covering key facts, figures, names, and context)",
       "timestamp": "ISO date or human timestamp from search result e.g. 2026-11-21 or 2 days ago",
       "url": "Direct https URL to the post or profile page found in search"
     }
@@ -663,17 +663,19 @@ export async function filterAndSummarizePosts(
 Fetched Social Posts (${rawPosts.length} items):
 ${JSON.stringify(rawPosts, null, 2)}`,
       config: {
-        systemInstruction: `You are PulseCurate's editorial AI filter and summarizer.
+        systemInstruction: `You are PulseCurate's senior editorial AI analyst and summarizer.
 Evaluate every fetched post against the User Topics.
 1. Score relevance from 1 to 10 (relevanceScore).
 2. STRICTLY filter out clickbait, promotional spam, and off-topic noise: ONLY include items with relevanceScore >= 7.
-3. For each kept item:
-   - Rewrite a crisp, factual AI Headline (no clickbait, max 14 words).
-   - Write 2 to 3 concise, information-dense bullet takeaways.
-   - Assign the best matching topicTag from the user's topics.
-   - Classify sentiment strictly as one of: "Breaking", "Analytical", "Bullish", "Critical", "Entertaining", "Informative".
-   - Classify urgency strictly as one of: "High", "Medium", "Low".
-   - Preserve the exact platform, accountName, handle, timestamp, and sourceUrl from the input post.
+3. For each kept item, produce a rich TWO-TIER summary structure:
+   - headline: Crisp, factual AI Headline (no clickbait, max 14 words).
+   - previewSummary: Medium-depth contextual explanation (2-4 informative sentences giving background, who/what is involved, and why it matters right now).
+   - takeaways: 4 to 6 substantive, non-overlapping bullet points (1-2 detailed sentences each with concrete facts, figures, technical context, or key insights — NOT tiny 5-word bullets).
+   - fullContent: Comprehensive, in-depth executive article & analysis separated into 4 to 5 well-crafted paragraphs using double newlines ("\\n\\n"). Cover: (1) full background & context, (2) factual/technical deep dive, (3) ecosystem/market/policy implications, and (4) forward outlook & key signals to watch.
+   - topicTag: Best matching tag from the user's topics.
+   - sentiment: Strictly one of "Breaking", "Analytical", "Bullish", "Critical", "Entertaining", "Informative".
+   - urgency: Strictly one of "High", "Medium", "Low".
+   - Preserve exact platform, accountName, handle, timestamp, and sourceUrl from the input post.
 4. Determine dominantMood across the curated feed: "Serious", "Analytical", or "Entertaining".`,
         responseMimeType: 'application/json',
         responseSchema: {
@@ -693,10 +695,12 @@ Evaluate every fetched post against the User Topics.
                   timestamp: { type: Type.STRING },
                   topicTag: { type: Type.STRING },
                   headline: { type: Type.STRING },
+                  previewSummary: { type: Type.STRING },
                   takeaways: {
                     type: Type.ARRAY,
                     items: { type: Type.STRING },
                   },
+                  fullContent: { type: Type.STRING },
                   sentiment: { type: Type.STRING },
                   urgency: { type: Type.STRING },
                   relevanceScore: { type: Type.NUMBER },
@@ -709,7 +713,9 @@ Evaluate every fetched post against the User Topics.
                   'timestamp',
                   'topicTag',
                   'headline',
+                  'previewSummary',
                   'takeaways',
+                  'fullContent',
                   'sentiment',
                   'urgency',
                   'relevanceScore',
@@ -741,7 +747,9 @@ Evaluate every fetched post against the User Topics.
       timestamp: item.timestamp || new Date().toISOString(),
       topicTag: item.topicTag || topics[0]?.label || 'General',
       headline: item.headline || '',
-      takeaways: Array.isArray(item.takeaways) ? item.takeaways.slice(0, 3) : [],
+      previewSummary: typeof item.previewSummary === 'string' ? item.previewSummary.trim() : undefined,
+      takeaways: Array.isArray(item.takeaways) ? item.takeaways.slice(0, 6) : [],
+      fullContent: typeof item.fullContent === 'string' ? item.fullContent.trim() : undefined,
       sentiment: (['Breaking', 'Analytical', 'Bullish', 'Critical', 'Entertaining', 'Informative'].includes(
         String(item.sentiment)
       )
@@ -768,6 +776,57 @@ Evaluate every fetched post against the User Topics.
     ),
     modelUsed,
     hadRetries,
+  };
+}
+
+export async function generateDeepArticleAnalysis(item: FeedItem): Promise<{
+  previewSummary: string;
+  takeaways: string[];
+  fullContent: string;
+}> {
+  const ai = getGeminiClient();
+
+  const { response } = await generateContentWithResilience(ai, {
+    contents: `Generate an in-depth two-tier editorial summary & executive analysis for this curated story:
+Headline: ${item.headline}
+Source: @${item.accountName} (${item.handle}) on ${item.platform}
+Topic: ${item.topicTag}
+Sentiment: ${item.sentiment} | Urgency: ${item.urgency}
+Source URL: ${item.sourceUrl}
+Existing points: ${item.takeaways.join(' | ')}`,
+    config: {
+      tools: [{ googleSearch: {} }],
+      systemInstruction: `You are PulseCurate's senior investigative editor.
+Produce verified, deeply informative editorial intelligence based on the headline, source, and Google Search verification:
+1. previewSummary: 3-4 substantive sentences summarizing the core development and context.
+2. takeaways: 5 substantive, fact-rich bullet points (1-2 sentences each).
+3. fullContent: 5 rich, comprehensive paragraphs separated by "\\n\\n" covering full context, factual/technical details, ecosystem impact, competing perspectives, and what to watch next. Keep strictly factual and grounded. Output ONLY valid JSON.`,
+      responseMimeType: 'application/json',
+      responseSchema: {
+        type: Type.OBJECT,
+        properties: {
+          previewSummary: { type: Type.STRING },
+          takeaways: { type: Type.ARRAY, items: { type: Type.STRING } },
+          fullContent: { type: Type.STRING },
+        },
+        required: ['previewSummary', 'takeaways', 'fullContent'],
+      },
+    },
+  });
+
+  const parsed = safeParseJson<{
+    previewSummary?: string;
+    takeaways?: string[];
+    fullContent?: string;
+  }>(response.text, {});
+
+  return {
+    previewSummary: (parsed.previewSummary || item.previewSummary || '').trim(),
+    takeaways:
+      Array.isArray(parsed.takeaways) && parsed.takeaways.length > 0
+        ? parsed.takeaways.slice(0, 6)
+        : item.takeaways,
+    fullContent: (parsed.fullContent || item.fullContent || '').trim(),
   };
 }
 

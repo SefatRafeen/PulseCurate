@@ -85,7 +85,7 @@ async function fetchYouTubeSource(
             accountName: channelName,
             handle: source.handle,
             title,
-            content: desc ? `${title}. ${desc.slice(0, 400)}` : title,
+            content: desc ? `${title}. ${desc.slice(0, 900)}` : title,
             timestamp: published,
             url: link,
           };
@@ -187,7 +187,7 @@ async function fetchRedditSource(
               accountName: d.subreddit_name_prefixed || `r/${cleanSub}`,
               handle: `r/${cleanSub}`,
               title: d.title || '',
-              content: d.selftext ? `${d.title}. ${d.selftext.slice(0, 420)}` : d.title || '',
+              content: d.selftext ? `${d.title}. ${d.selftext.slice(0, 950)}` : d.title || '',
               timestamp: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : new Date().toISOString(),
               url: permalink,
             };

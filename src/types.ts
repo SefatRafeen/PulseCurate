@@ -64,6 +64,7 @@ export interface FeedItem {
   timestamp: string;
   topicTag: string;
   headline: string;
+  previewSummary?: string;
   takeaways: string[];
   sentiment: SentimentLabel;
   urgency: UrgencyLevel;

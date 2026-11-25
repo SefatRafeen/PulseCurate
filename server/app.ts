@@ -5,6 +5,7 @@ import {
   extractTopicsWithAI,
   filterAndSummarizePosts,
   formatFriendlyGeminiError,
+  generateDeepArticleAnalysis,
   searchSourcesWithAI,
   suggestSourcesWithAI,
   type RetryStatusEvent,
@@ -225,6 +226,23 @@ export function createPulseCurateApp(): express.Express {
       } else {
         res.status(500).json({ error: message });
       }
+    }
+  });
+
+  // On-demand deep Tier-2 editorial analysis for an individual story
+  router.post('/article/analyze', async (req, res) => {
+    const item = req.body?.item;
+    if (!item || typeof item.headline !== 'string' || !item.headline.trim()) {
+      res.status(400).json({ error: 'Valid article item is required.' });
+      return;
+    }
+
+    try {
+      const analysis = await generateDeepArticleAnalysis(item);
+      res.json(analysis);
+    } catch (err) {
+      const message = formatFriendlyGeminiError(err);
+      res.status(500).json({ error: message });
     }
   });
 

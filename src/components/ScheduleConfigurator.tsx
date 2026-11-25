@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Bell, Check, Clock, Code2, Copy, Info, Loader2, Mail, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
+import { Bell, Clock, Info, Loader2, Mail, Plus, RefreshCw, Send, Trash2 } from 'lucide-react';
 import type { FeedItem, ScheduleConfig, ScheduleFrequency, TopicItem, WeekdayCode } from '../types.ts';
 
 interface ScheduleConfiguratorProps {
@@ -32,10 +32,7 @@ export const ScheduleConfigurator: React.FC<ScheduleConfiguratorProps> = ({
   const [emailFeedback, setEmailFeedback] = useState<{
     type: 'success' | 'info' | 'error';
     text: string;
-    previewHtml?: string;
   } | null>(null);
-  const [showCronSnippet, setShowCronSnippet] = useState(false);
-  const [copiedKey, setCopiedKey] = useState<string | null>(null);
   const [serverResendConfigured, setServerResendConfigured] = useState<boolean>(false);
 
   useEffect(() => {
@@ -52,9 +49,6 @@ export const ScheduleConfigurator: React.FC<ScheduleConfiguratorProps> = ({
       active = false;
     };
   }, []);
-
-  const hasWebhook = Boolean(schedule.webhookUrl.trim());
-  const isEmailConfigured = hasWebhook || serverResendConfigured;
 
   const update = (patch: Partial<ScheduleConfig>) => {
     onChange({ ...schedule, ...patch });
@@ -114,7 +108,6 @@ export const ScheduleConfigurator: React.FC<ScheduleConfiguratorProps> = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           email: schedule.emailAddress.trim(),
-          webhookUrl: schedule.webhookUrl.trim(),
           topics: topics.map((t) => t.label),
           items: sampleItems,
           isTest: true,
@@ -129,7 +122,6 @@ export const ScheduleConfigurator: React.FC<ScheduleConfiguratorProps> = ({
       setEmailFeedback({
         type: data.delivered ? 'success' : 'info',
         text: data.message,
-        previewHtml: data.previewHtml,
       });
     } catch (err) {
       setEmailFeedback({
@@ -141,52 +133,17 @@ export const ScheduleConfigurator: React.FC<ScheduleConfiguratorProps> = ({
     }
   };
 
-  const appOrigin = typeof window !== 'undefined' ? window.location.origin : 'https://your-app.vercel.app';
-
-  const vercelCronSnippet = `{
-  "crons": [
-    {
-      "path": "/api/cron-digest",
-      "schedule": "0 ${Number((schedule.time || '08:00').split(':')[0])} * * *"
-    }
-  ]
-}`;
-
-  const githubActionSnippet = `name: PulseCurate Scheduled Digest
-on:
-  schedule:
-    - cron: '0 ${Number((schedule.time || '08:00').split(':')[0])} * * *'
-jobs:
-  trigger-digest:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Trigger PulseCurate Cron Digest
-        run: |
-          curl -X POST "${appOrigin}/api/cron-digest" \\
-            -H "Content-Type: application/json" \\
-            -d '{"email":"${schedule.emailAddress || 'you@example.com'}"}'`;
-
-  const copyText = async (key: string, text: string) => {
-    try {
-      await navigator.clipboard.writeText(text);
-      setCopiedKey(key);
-      setTimeout(() => setCopiedKey(null), 2000);
-    } catch {
-      // Ignore clipboard permission denial
-    }
-  };
-
   return (
-    <div className="space-y-6">
-      {/* Frequency & Time Picker (Liquid Glass) */}
-      <div className="liquid-glass rounded-3xl p-5 sm:p-6 space-y-5">
+    <div className="space-y-5">
+      {/* 1. Schedule: Frequency, Days, Presets, Exact Time & Start Date */}
+      <div className="liquid-glass rounded-3xl p-4 sm:p-5 space-y-5">
         <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
           <Clock className="w-4 h-4 text-[var(--pc-accent)]" />
           <span>Update Frequency &amp; Schedule</span>
         </div>
 
-        {/* Frequency Tabs (Liquid Pills) */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+        {/* Frequency Tabs */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
           {(
             [
               { id: 'daily', label: 'Daily' },
@@ -201,7 +158,7 @@ jobs:
                 key={freq.id}
                 type="button"
                 onClick={() => update({ frequency: freq.id })}
-                className={`min-h-[44px] px-3.5 py-2 text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
+                className={`min-h-[42px] px-3 py-2 text-xs font-semibold transition-all whitespace-nowrap cursor-pointer ${
                   active
                     ? 'liquid-pill-active'
                     : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
@@ -213,7 +170,7 @@ jobs:
           })}
         </div>
 
-        {/* Weekly Day Checkboxes (Liquid Pills) */}
+        {/* Day Selector (Mon-Sun) */}
         {schedule.frequency === 'weekly' && (
           <div className="space-y-2">
             <span className="text-xs font-medium text-[var(--pc-text-muted)]">Select Days</span>
@@ -225,7 +182,7 @@ jobs:
                     key={day}
                     type="button"
                     onClick={() => toggleWeekday(day)}
-                    className={`min-h-[40px] min-w-[52px] px-3.5 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                    className={`min-h-[38px] min-w-[48px] px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                       active
                         ? 'liquid-pill-active'
                         : 'liquid-pill text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
@@ -249,7 +206,7 @@ jobs:
               id="monthly-day"
               value={schedule.monthlyDay}
               onChange={(e) => update({ monthlyDay: Number(e.target.value) })}
-              className="min-h-[40px] rounded-lg border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3 py-1.5 text-sm text-[var(--pc-text)] font-mono-tabular"
+              className="min-h-[40px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] px-3 py-1.5 text-sm text-[var(--pc-text)] font-mono-tabular"
             >
               {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
                 <option key={d} value={d}>
@@ -270,7 +227,7 @@ jobs:
               {(schedule.multipleTimes || []).map((t) => (
                 <div
                   key={t}
-                  className="min-h-[38px] px-3 py-1.5 rounded-lg border border-[var(--pc-border)] bg-[var(--pc-bg)] flex items-center gap-2 text-xs font-mono-tabular text-[var(--pc-text)]"
+                  className="min-h-[38px] px-3 py-1.5 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] flex items-center gap-2 text-xs font-mono-tabular text-[var(--pc-text)]"
                 >
                   <span>{t}</span>
                   <button
@@ -288,12 +245,12 @@ jobs:
                   type="time"
                   value={newMultiTime}
                   onChange={(e) => setNewMultiTime(e.target.value)}
-                  className="min-h-[38px] rounded-lg border border-[var(--pc-border)] bg-[var(--pc-bg)] px-2.5 text-xs font-mono-tabular text-[var(--pc-text)]"
+                  className="min-h-[38px] rounded-xl border border-[var(--pc-border)] bg-[var(--pc-bg)] px-2.5 text-xs font-mono-tabular text-[var(--pc-text)]"
                 />
                 <button
                   type="button"
                   onClick={addMultipleTime}
-                  className="min-h-[38px] px-3 rounded-lg border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-1 cursor-pointer"
+                  className="min-h-[38px] px-3 rounded-xl border border-[var(--pc-border)] bg-[var(--pc-surface-elevated)] text-xs font-medium text-[var(--pc-text)] hover:border-[var(--pc-accent)] flex items-center gap-1 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
                   Add Slot
@@ -310,7 +267,7 @@ jobs:
               <span className="block text-xs font-medium text-[var(--pc-text-muted)] mb-2">
                 Time Presets
               </span>
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5">
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
                 {TIME_PRESETS.map((preset) => {
                   const active = schedule.time === preset.time;
                   return (
@@ -370,228 +327,134 @@ jobs:
         </div>
       </div>
 
-      {/* 3-Layer Fail-Safe Delivery System (Liquid Glass) */}
-      <div className="space-y-4">
-        <h3 className="text-sm font-semibold text-[var(--pc-text)]">
-          3-Layer Fail-Safe Delivery System
-        </h3>
-
-        {/* Layer 1: Browser Push Notification */}
-        <div className="liquid-glass rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
-              <Bell className="w-4 h-4 text-[var(--pc-accent)]" />
-              <span>Layer 1: Browser Push Notification</span>
-            </div>
-            <p className="text-xs text-[var(--pc-text-muted)]">
-              Triggers an OS notification with your top headline summary when the scheduled time hits.
-            </p>
-            <div className="text-xs text-[var(--pc-text-muted)]">
-              Permission status:{' '}
-              <strong className="text-[var(--pc-text)] capitalize">{notifStatus}</strong>
-            </div>
+      {/* 2. Push Notifications (Layer 1) */}
+      <div className="liquid-glass rounded-3xl p-4 sm:p-5 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
+            <Bell className="w-4 h-4 text-[var(--pc-accent)]" />
+            <span>Layer 1: Browser Push Notification</span>
           </div>
+          <p className="text-xs text-[var(--pc-text-muted)]">
+            Triggers an OS notification with your top headline summary when the scheduled time hits.
+          </p>
+          <div className="text-xs text-[var(--pc-text-muted)]">
+            Permission status:{' '}
+            <strong className="text-[var(--pc-text)] capitalize">{notifStatus}</strong>
+          </div>
+        </div>
 
+        <button
+          type="button"
+          onClick={requestPushPermission}
+          className="liquid-pill min-h-[42px] px-4 py-2 text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] whitespace-nowrap shrink-0 cursor-pointer"
+        >
+          {notifStatus === 'granted' && schedule.pushEnabled
+            ? 'Push Active (Send Test)'
+            : 'Enable Push Alerts'}
+        </button>
+      </div>
+
+      {/* 3. Personal Email Digest (Layer 2 — Webhook & Cron clutter removed) */}
+      <div className="liquid-glass rounded-3xl p-4 sm:p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
+              <Mail className="w-4 h-4 text-[var(--pc-accent)]" />
+              <span>Personal Email Digest</span>
+            </div>
+            <p className="text-xs text-[var(--pc-text-muted)] mt-1">
+              Receive formatted curated digests directly at your personal email address.
+            </p>
+          </div>
+          <label className="flex items-center gap-2 text-xs font-medium text-[var(--pc-text)] cursor-pointer shrink-0">
+            <input
+              type="checkbox"
+              checked={schedule.emailEnabled}
+              onChange={(e) => update({ emailEnabled: e.target.checked })}
+              className="w-4 h-4 rounded accent-[var(--pc-accent)]"
+            />
+            Enable
+          </label>
+        </div>
+
+        <div className="liquid-pill px-4 py-2.5 flex items-center gap-2 text-xs">
+          <Info
+            className="w-3.5 h-3.5 shrink-0"
+            style={{ color: serverResendConfigured ? 'var(--pc-success)' : 'var(--pc-text-muted)' }}
+          />
+          <span className="text-[var(--pc-text)] font-medium">
+            {serverResendConfigured
+              ? 'Email digest service ready'
+              : 'Email digest optional — feed refresh works normally'}
+          </span>
+        </div>
+
+        <div>
+          <label
+            htmlFor="digest-email"
+            className="block text-xs font-medium text-[var(--pc-text-muted)] mb-1.5"
+          >
+            Personal Email Address
+          </label>
+          <input
+            id="digest-email"
+            type="email"
+            value={schedule.emailAddress}
+            onChange={(e) => update({ emailAddress: e.target.value })}
+            placeholder="you@domain.com"
+            className="liquid-input w-full min-h-[44px] px-4 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
+          />
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2.5">
           <button
             type="button"
-            onClick={requestPushPermission}
-            className="liquid-pill min-h-[44px] px-4 py-2 text-xs font-semibold text-[var(--pc-text)] hover:border-[var(--pc-accent)] whitespace-nowrap shrink-0 cursor-pointer"
+            onClick={handleSendTestEmail}
+            disabled={isSendingTest}
+            className="liquid-btn-primary min-h-[42px] px-4 py-2 text-xs font-semibold flex items-center gap-2 disabled:opacity-50 cursor-pointer"
           >
-            {notifStatus === 'granted' && schedule.pushEnabled
-              ? 'Push Active (Send Test)'
-              : 'Enable Push Alerts'}
+            {isSendingTest ? (
+              <Loader2 className="w-3.5 h-3.5 animate-spin" />
+            ) : (
+              <Send className="w-3.5 h-3.5" />
+            )}
+            Send Test Digest Email Now
           </button>
         </div>
 
-        {/* Layer 2: Personal Email Digest */}
-        <div className="liquid-glass rounded-3xl p-5 space-y-4">
-          <div className="flex items-start justify-between gap-3">
-            <div>
-              <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
-                <Mail className="w-4 h-4 text-[var(--pc-accent)]" />
-                <span>Layer 2: Personal Email Digest</span>
-              </div>
-              <p className="text-xs text-[var(--pc-text-muted)] mt-1">
-                Delivers a formatted digest even when your browser is closed via your webhook or cron trigger.
-              </p>
-            </div>
-            <label className="flex items-center gap-2 text-xs font-medium text-[var(--pc-text)] cursor-pointer shrink-0">
-              <input
-                type="checkbox"
-                checked={schedule.emailEnabled}
-                onChange={(e) => update({ emailEnabled: e.target.checked })}
-                className="w-4 h-4 rounded accent-[var(--pc-accent)]"
-              />
-              Enable
-            </label>
+        {emailFeedback && (
+          <div
+            className={`liquid-glass rounded-2xl p-3.5 text-xs ${
+              emailFeedback.type === 'error'
+                ? 'border-[var(--pc-danger)]/50 text-[var(--pc-danger)]'
+                : 'text-[var(--pc-text)]'
+            }`}
+          >
+            <p>{emailFeedback.text}</p>
           </div>
+        )}
+      </div>
 
-          <div className="liquid-pill px-4 py-2.5 flex items-center gap-2 text-xs">
-            <Info
-              className="w-3.5 h-3.5 shrink-0"
-              style={{ color: isEmailConfigured ? 'var(--pc-success)' : 'var(--pc-text-muted)' }}
-            />
-            <span className="text-[var(--pc-text)] font-medium">
-              {isEmailConfigured
-                ? hasWebhook
-                  ? 'Email digest ready (custom webhook configured)'
-                  : 'Email digest ready (server Resend configured)'
-                : 'Email digest not configured'}
-            </span>
-            {!isEmailConfigured && (
-              <span className="text-[var(--pc-text-muted)]">
-                &mdash; Optional. Feed &amp; Refresh work normally without email credentials.
-              </span>
-            )}
+      {/* 4. Fail-Safe Delivery System (Layer 3) */}
+      <div className="liquid-glass rounded-3xl p-4 sm:p-5 flex items-center justify-between gap-4">
+        <div className="space-y-1">
+          <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
+            <RefreshCw className="w-4 h-4 text-[var(--pc-success)]" />
+            <span>Layer 3: Guaranteed On-Open Auto-Sync (Zero-Fail Fallback)</span>
           </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div>
-              <label
-                htmlFor="digest-email"
-                className="block text-xs font-medium text-[var(--pc-text-muted)] mb-1"
-              >
-                Personal Email Address
-              </label>
-              <input
-                id="digest-email"
-                type="email"
-                value={schedule.emailAddress}
-                onChange={(e) => update({ emailAddress: e.target.value })}
-                placeholder="you@domain.com"
-                className="liquid-input w-full min-h-[44px] px-4 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
-              />
-            </div>
-            <div>
-              <label
-                htmlFor="digest-webhook"
-                className="block text-xs font-medium text-[var(--pc-text-muted)] mb-1"
-              >
-                EmailJS / Resend Webhook URL (Optional)
-              </label>
-              <input
-                id="digest-webhook"
-                type="url"
-                value={schedule.webhookUrl}
-                onChange={(e) => update({ webhookUrl: e.target.value })}
-                placeholder="https://hook.your-mailer.com/..."
-                className="liquid-input w-full min-h-[44px] px-4 text-sm text-[var(--pc-text)] placeholder:text-[var(--pc-text-muted)]/60"
-              />
-            </div>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2.5">
-            <button
-              type="button"
-              onClick={handleSendTestEmail}
-              disabled={isSendingTest}
-              className="liquid-btn-primary min-h-[42px] px-4 py-2 text-xs font-semibold flex items-center gap-2 disabled:opacity-50 cursor-pointer"
-            >
-              {isSendingTest ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin" />
-              ) : (
-                <Send className="w-3.5 h-3.5 text-[var(--pc-accent)]" />
-              )}
-              Send Test Digest Email Now
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowCronSnippet((v) => !v)}
-              className="liquid-pill min-h-[42px] px-4 py-2 text-xs font-medium text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] flex items-center gap-2 cursor-pointer"
-            >
-              <Code2 className="w-3.5 h-3.5" />
-              {showCronSnippet ? 'Hide' : 'Show'} /api/cron-digest &amp; Cron Config
-            </button>
-          </div>
-
-          {emailFeedback && (
-            <div
-              className={`liquid-glass rounded-2xl p-3.5 text-xs space-y-2 ${
-                emailFeedback.type === 'error'
-                  ? 'border-[var(--pc-danger)]/50 text-[var(--pc-danger)]'
-                  : 'text-[var(--pc-text)]'
-              }`}
-            >
-              <p>{emailFeedback.text}</p>
-            </div>
-          )}
-
-          {showCronSnippet && (
-            <div className="liquid-glass rounded-2xl p-4 space-y-3 text-xs">
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-semibold text-[var(--pc-text)]">
-                  Endpoint: <code className="font-mono-tabular text-[var(--pc-accent)]">{appOrigin}/api/cron-digest</code>
-                </span>
-                <button
-                  type="button"
-                  onClick={() => copyText('endpoint', `${appOrigin}/api/cron-digest`)}
-                  className="liquid-pill px-3 py-1 text-[var(--pc-text-muted)] hover:text-[var(--pc-text)] flex items-center gap-1 cursor-pointer"
-                >
-                  {copiedKey === 'endpoint' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                  Copy URL
-                </button>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1 text-[var(--pc-text-muted)]">
-                  <span>vercel.json Cron Config</span>
-                  <button
-                    type="button"
-                    onClick={() => copyText('vercel', vercelCronSnippet)}
-                    className="hover:text-[var(--pc-text)] flex items-center gap-1 cursor-pointer"
-                  >
-                    {copiedKey === 'vercel' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    Copy
-                  </button>
-                </div>
-                <pre className="p-3 rounded-2xl liquid-glass overflow-x-auto font-mono-tabular text-[11px] text-[var(--pc-text)]">
-                  {vercelCronSnippet}
-                </pre>
-              </div>
-
-              <div>
-                <div className="flex items-center justify-between mb-1 text-[var(--pc-text-muted)]">
-                  <span>GitHub Actions Workflow (.github/workflows/digest.yml)</span>
-                  <button
-                    type="button"
-                    onClick={() => copyText('gh', githubActionSnippet)}
-                    className="hover:text-[var(--pc-text)] flex items-center gap-1 cursor-pointer"
-                  >
-                    {copiedKey === 'gh' ? <Check className="w-3 h-3" /> : <Copy className="w-3 h-3" />}
-                    Copy
-                  </button>
-                </div>
-                <pre className="p-3 rounded-2xl liquid-glass overflow-x-auto font-mono-tabular text-[11px] text-[var(--pc-text)]">
-                  {githubActionSnippet}
-                </pre>
-              </div>
-            </div>
-          )}
+          <p className="text-xs text-[var(--pc-text-muted)]">
+            Any missed scheduled cycle automatically syncs the instant you open or refresh PulseCurate.
+          </p>
         </div>
-
-        {/* Layer 3: Guaranteed On-Open Auto-Sync (Liquid Glass) */}
-        <div className="liquid-glass rounded-3xl p-5 flex items-center justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-sm font-semibold text-[var(--pc-text)]">
-              <RefreshCw className="w-4 h-4 text-[var(--pc-success)]" />
-              <span>Layer 3: Guaranteed On-Open Auto-Sync (Zero-Fail Fallback)</span>
-            </div>
-            <p className="text-xs text-[var(--pc-text-muted)]">
-              Tracks <code className="font-mono-tabular">lastUpdatedTimestamp</code> and{' '}
-              <code className="font-mono-tabular">nextScheduledTimestamp</code> locally. Any missed cycle automatically syncs the instant you open or refresh PulseCurate.
-            </p>
-          </div>
-          <label className="flex items-center gap-2 text-xs font-semibold text-[var(--pc-text)] shrink-0 cursor-pointer">
-            <input
-              type="checkbox"
-              checked={schedule.autoSyncOnOpen}
-              onChange={(e) => update({ autoSyncOnOpen: e.target.checked })}
-              className="w-4 h-4 rounded accent-[var(--pc-accent)]"
-            />
-            Active
-          </label>
-        </div>
+        <label className="flex items-center gap-2 text-xs font-semibold text-[var(--pc-text)] shrink-0 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={schedule.autoSyncOnOpen}
+            onChange={(e) => update({ autoSyncOnOpen: e.target.checked })}
+            className="w-4 h-4 rounded accent-[var(--pc-accent)]"
+          />
+          Active
+        </label>
       </div>
     </div>
   );

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { AmbientBackdrop } from './components/AmbientBackdrop.tsx';
 import { Dashboard } from './components/Dashboard.tsx';
 import { OnboardingWizard } from './components/OnboardingWizard.tsx';
-import { SettingsDrawer } from './components/SettingsDrawer.tsx';
 import { applyThemeToDocument, getAdaptiveThemeId, getThemeById } from './data/themes.ts';
 import type {
   AppSettings,
@@ -16,7 +15,13 @@ import type {
 } from './types.ts';
 import { postWithRetryStatus, sanitizeClientError } from './utils/apiClient.ts';
 import { computeNextScheduledTimestamp } from './utils/scheduleMath.ts';
-import { loadCachedFeed, loadSettings, saveCachedFeed, saveSettings } from './utils/storage.ts';
+import {
+  DEFAULT_SETTINGS,
+  loadCachedFeed,
+  loadSettings,
+  saveCachedFeed,
+  saveSettings,
+} from './utils/storage.ts';
 
 function computeDominantMoodFromTopics(topics: TopicItem[]): TopicMood {
   const counts: Record<TopicMood, number> = { Serious: 0, Analytical: 0, Entertaining: 0 };
@@ -45,31 +50,15 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(false);
   const [retryStatus, setRetryStatus] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [settingsOpen, setSettingsOpen] = useState(false);
+  const [previewThemeId, setPreviewThemeId] = useState<string | null>(null);
   const [nowMs, setNowMs] = useState(() => Date.now());
-  const [serverResendConfigured, setServerResendConfigured] = useState(false);
 
   const refreshLockRef = useRef(false);
 
+  // Apply active or live-previewed theme CSS variables immediately
   useEffect(() => {
-    let active = true;
-    fetch('/api/email/status')
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (active && data) {
-          setServerResendConfigured(Boolean(data.serverResendConfigured));
-        }
-      })
-      .catch(() => {});
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  // Apply active theme CSS variables immediately
-  useEffect(() => {
-    applyThemeToDocument(getThemeById(settings.themeId));
-  }, [settings.themeId]);
+    applyThemeToDocument(getThemeById(previewThemeId || settings.themeId));
+  }, [previewThemeId, settings.themeId]);
 
   // Persist settings to localStorage whenever updated
   useEffect(() => {
@@ -145,18 +134,14 @@ export default function App() {
         setSourceStatuses(payload.sourceStatuses);
         setFilteredOutCount(payload.filteredOutCount);
 
-        saveCachedFeed({
+        const nextCache = {
           items: payload.items,
           sourceStatuses: payload.sourceStatuses,
           filteredOutCount: payload.filteredOutCount,
           fetchedAt: payload.fetchedAt,
-        });
-        setCachedFeed({
-          items: payload.items,
-          sourceStatuses: payload.sourceStatuses,
-          filteredOutCount: payload.filteredOutCount,
-          fetchedAt: payload.fetchedAt,
-        });
+        };
+        saveCachedFeed(nextCache);
+        setCachedFeed(nextCache);
 
         const nextTs = computeNextScheduledTimestamp(targetSettings.schedule, Date.now());
         const nextThemeId = targetSettings.autoAdaptiveTheme
@@ -176,8 +161,7 @@ export default function App() {
           }
           if (
             targetSettings.schedule.emailEnabled &&
-            targetSettings.schedule.emailAddress.trim() &&
-            targetSettings.schedule.webhookUrl.trim()
+            targetSettings.schedule.emailAddress.trim()
           ) {
             fetch('/api/email/send-digest', {
               method: 'POST',
@@ -264,15 +248,15 @@ export default function App() {
     await refreshFeed(completedSettings);
   };
 
-  const handleThemeChange = (themeId: string) => {
+  const handleThemeChange = useCallback((themeId: string) => {
     setSettings((prev) => ({
       ...prev,
       themeId,
       autoAdaptiveTheme: false,
     }));
-  };
+  }, []);
 
-  const handleAutoAdaptiveToggle = (enabled: boolean) => {
+  const handleAutoAdaptiveToggle = useCallback((enabled: boolean) => {
     setSettings((prev) => {
       const nextThemeId = enabled
         ? getAdaptiveThemeId(computeDominantMoodFromTopics(prev.topics))
@@ -283,30 +267,82 @@ export default function App() {
         themeId: nextThemeId,
       };
     });
-  };
+  }, []);
 
-  const handleSaveAndRefresh = async (updates: {
-    topics: TopicItem[];
-    sources: SocialSource[];
-    schedule: ScheduleConfig;
-  }) => {
-    const nextScheduled = computeNextScheduledTimestamp(updates.schedule, Date.now());
-    const updated: AppSettings = {
-      ...settings,
-      topics: updates.topics,
-      sources: updates.sources,
-      schedule: updates.schedule,
-      nextScheduledTimestamp: nextScheduled,
-    };
-    setSettings(updated);
-    await syncScheduleToServer(updated);
-    await refreshFeed(updated);
-  };
+  const handleTopicsChange = useCallback((topics: TopicItem[]) => {
+    setSettings((prev) => {
+      const updated = { ...prev, topics };
+      void syncScheduleToServer(updated);
+      return updated;
+    });
+  }, [syncScheduleToServer]);
 
-  const handleRestartOnboarding = () => {
-    setSettingsOpen(false);
-    setSettings((prev) => ({ ...prev, onboardingComplete: false }));
-  };
+  const handleSourcesChange = useCallback((sources: SocialSource[]) => {
+    setSettings((prev) => {
+      const updated = { ...prev, sources };
+      void syncScheduleToServer(updated);
+      return updated;
+    });
+  }, [syncScheduleToServer]);
+
+  const handleSavePreferences = useCallback(
+    async (schedule: ScheduleConfig) => {
+      const nextScheduled = computeNextScheduledTimestamp(schedule, Date.now());
+      const updated: AppSettings = {
+        ...settings,
+        schedule,
+        nextScheduledTimestamp: nextScheduled,
+      };
+      setSettings(updated);
+      await syncScheduleToServer(updated);
+    },
+    [settings, syncScheduleToServer]
+  );
+
+  const handleEnrichFeedItem = useCallback((itemId: string, patch: Partial<FeedItem>) => {
+    setItems((prev) => {
+      const next = prev.map((it) => (it.id === itemId ? { ...it, ...patch } : it));
+      setCachedFeed((prevCache) => {
+        const updatedCache = {
+          items: next,
+          sourceStatuses: prevCache?.sourceStatuses || [],
+          filteredOutCount: prevCache?.filteredOutCount || 0,
+          fetchedAt: prevCache?.fetchedAt || Date.now(),
+        };
+        saveCachedFeed(updatedCache);
+        return updatedCache;
+      });
+      return next;
+    });
+  }, []);
+
+  const handleClearCachedFeed = useCallback(() => {
+    try {
+      localStorage.removeItem('pulsecurate_feed_v1');
+    } catch {
+      // ignore
+    }
+    setItems([]);
+    setSourceStatuses([]);
+    setFilteredOutCount(0);
+    setCachedFeed(null);
+  }, []);
+
+  const handleResetAllSettings = useCallback(() => {
+    try {
+      localStorage.removeItem('pulsecurate_settings_v1');
+      localStorage.removeItem('pulsecurate_feed_v1');
+      localStorage.removeItem('pulsecurate_saved_story_ids');
+    } catch {
+      // ignore
+    }
+    setItems([]);
+    setSourceStatuses([]);
+    setFilteredOutCount(0);
+    setCachedFeed(null);
+    setPreviewThemeId(null);
+    setSettings({ ...DEFAULT_SETTINGS, onboardingComplete: false });
+  }, []);
 
   if (!settings.onboardingComplete) {
     return (
@@ -331,26 +367,20 @@ export default function App() {
         <Dashboard
           settings={settings}
           items={items}
-          sourceStatuses={sourceStatuses}
-          filteredOutCount={filteredOutCount}
           isLoading={isLoading}
           retryStatus={retryStatus}
           error={error}
           nowMs={nowMs}
-          serverResendConfigured={serverResendConfigured}
           onRefreshNow={() => refreshFeed(settings)}
-          onOpenSettings={() => setSettingsOpen(true)}
-        />
-
-        <SettingsDrawer
-          isOpen={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          settings={settings}
-          feedItems={items}
-          onThemeChange={handleThemeChange}
+          onTopicsChange={handleTopicsChange}
+          onSourcesChange={handleSourcesChange}
+          onPreviewTheme={setPreviewThemeId}
+          onApplyTheme={handleThemeChange}
           onAutoAdaptiveToggle={handleAutoAdaptiveToggle}
-          onSaveAndRefresh={handleSaveAndRefresh}
-          onRestartOnboarding={handleRestartOnboarding}
+          onSavePreferences={handleSavePreferences}
+          onClearCachedFeed={handleClearCachedFeed}
+          onResetAllSettings={handleResetAllSettings}
+          onEnrichFeedItem={handleEnrichFeedItem}
         />
       </div>
     </div>

@@ -312,6 +312,112 @@
     inset 0 1px 0.5px 0 var(--glass-specular);
 }
 
+/* ==========================================================================
+   Tactile 3D Floating / Pillowy News Feed Cards
+   ========================================================================== */
+.tactile-pillow-card {
+  position: relative;
+  border-radius: 30px;
+  background:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.085) 0%,
+      rgba(255, 255, 255, 0.015) 38%,
+      rgba(0, 0, 0, 0.14) 100%
+    ),
+    var(--glass-tint);
+  backdrop-filter: blur(26px) saturate(185%);
+  -webkit-backdrop-filter: blur(26px) saturate(185%);
+  border: 1px solid var(--pc-border);
+  border-top-color: var(--glass-border-top);
+  border-left-color: var(--glass-border-top);
+  box-shadow:
+    0 6px 12px -4px rgba(0, 0, 0, 0.44),
+    0 18px 36px -8px rgba(0, 0, 0, 0.52),
+    0 32px 58px -16px rgba(0, 0, 0, 0.40),
+    inset 0 1.5px 1px 0 var(--glass-specular),
+    inset 0 0 24px 0 rgba(255, 255, 255, 0.035),
+    inset 0 -3px 8px 0 rgba(0, 0, 0, 0.24);
+  transform: translate3d(0, 0, 0) scale(1);
+  transition:
+    transform 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 0.24s cubic-bezier(0.22, 1, 0.36, 1),
+    border-color 0.24s ease;
+  will-change: transform;
+}
+
+html:not(.dark) .tactile-pillow-card {
+  background:
+    linear-gradient(
+      165deg,
+      rgba(255, 255, 255, 0.92) 0%,
+      rgba(255, 255, 255, 0.55) 45%,
+      rgba(15, 23, 42, 0.04) 100%
+    ),
+    var(--glass-tint);
+  box-shadow:
+    0 4px 10px -3px rgba(15, 23, 42, 0.10),
+    0 16px 32px -8px rgba(15, 23, 42, 0.14),
+    0 28px 50px -14px rgba(15, 23, 42, 0.10),
+    inset 0 2px 2px 0 rgba(255, 255, 255, 0.96),
+    inset 0 -3px 8px 0 rgba(15, 23, 42, 0.05);
+}
+
+@media (hover: hover) {
+  .tactile-pillow-card:hover {
+    transform: translate3d(0, -4px, 0) scale(1.006);
+    border-color: var(--pc-accent);
+    border-top-color: var(--glass-border-top);
+    box-shadow:
+      0 10px 18px -4px rgba(0, 0, 0, 0.48),
+      0 26px 46px -10px rgba(0, 0, 0, 0.56),
+      0 0 28px -4px var(--pc-accent-soft),
+      inset 0 2px 1.5px 0 var(--glass-specular),
+      inset 0 -3px 8px 0 rgba(0, 0, 0, 0.22);
+  }
+
+  html:not(.dark) .tactile-pillow-card:hover {
+    box-shadow:
+      0 8px 16px -4px rgba(15, 23, 42, 0.12),
+      0 24px 44px -10px rgba(15, 23, 42, 0.16),
+      0 0 24px -4px var(--pc-accent-soft),
+      inset 0 2px 2px 0 rgba(255, 255, 255, 1);
+  }
+}
+
+.tactile-pillow-card:active:not(:has(button:active, a:active)) {
+  transform: translate3d(0, 3px, 0) scale(0.982);
+  box-shadow:
+    0 3px 8px -2px rgba(0, 0, 0, 0.48),
+    0 8px 18px -6px rgba(0, 0, 0, 0.40),
+    inset 0 1px 1px 0 var(--glass-specular),
+    inset 0 2px 8px 0 rgba(0, 0, 0, 0.26);
+}
+
+html:not(.dark) .tactile-pillow-card:active:not(:has(button:active, a:active)) {
+  box-shadow:
+    0 2px 6px -2px rgba(15, 23, 42, 0.12),
+    0 8px 16px -6px rgba(15, 23, 42, 0.14),
+    inset 0 2px 6px 0 rgba(15, 23, 42, 0.08);
+}
+
+/* Strict scroll isolation for modal & reader scroll regions */
+.modal-scroll-area {
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+}
+
+/* Hide scrollbars cleanly where custom gesture/dot UI is used */
+.no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+
 /* Custom scrollbar with subtle contrast */
 ::-webkit-scrollbar {
   width: 6px;
