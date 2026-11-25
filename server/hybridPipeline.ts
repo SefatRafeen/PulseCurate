@@ -54,6 +54,74 @@ async function resolveYouTubeChannelId(handleOrId: string): Promise<string | nul
   return null;
 }
 
+export function extractYouTubeThumbnail(url: string): string | undefined {
+  if (!url) return undefined;
+  const patterns = [
+    /(?:youtube\.com\/watch\?(?:[^&]*&)*v=|youtu\.be\/|youtube\.com\/shorts\/|youtube\.com\/embed\/)([a-zA-Z0-9_-]{11})/i,
+  ];
+  for (const re of patterns) {
+    const match = url.match(re);
+    if (match?.[1]) {
+      return `https://i.ytimg.com/vi/${match[1]}/hqdefault.jpg`;
+    }
+  }
+  return undefined;
+}
+
+export async function resolveSourceThumbnail(url: string): Promise<string | undefined> {
+  if (!url || !/^https?:\/\//i.test(url)) return undefined;
+
+  const ytThumb = extractYouTubeThumbnail(url);
+  if (ytThumb) return ytThumb;
+
+  try {
+    const res = await fetchWithTimeout(
+      url,
+      {
+        headers: {
+          'User-Agent':
+            'Mozilla/5.0 (compatible; PulseCurate/1.0; +https://pulsecurate.app)',
+          Accept: 'text/html,application/xhtml+xml',
+        },
+        redirect: 'follow',
+      },
+      2600
+    );
+    if (!res.ok) return undefined;
+    const contentType = res.headers.get('content-type') || '';
+    if (!contentType.includes('text/html') && !contentType.includes('xhtml')) {
+      return undefined;
+    }
+
+    const html = (await res.text()).slice(0, 80_000);
+    const metaPatterns = [
+      /<meta[^>]+property=["']og:image(?::secure_url)?["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+property=["']og:image(?::secure_url)?["']/i,
+      /<meta[^>]+name=["']twitter:image(?::src)?["'][^>]+content=["']([^"']+)["']/i,
+      /<meta[^>]+content=["']([^"']+)["'][^>]+name=["']twitter:image(?::src)?["']/i,
+    ];
+
+    for (const re of metaPatterns) {
+      const m = html.match(re);
+      if (m?.[1]) {
+        const raw = decodeXmlEntities(m[1]);
+        try {
+          const resolved = new URL(raw, url).toString();
+          if (/^https?:\/\//i.test(resolved)) {
+            return resolved;
+          }
+        } catch {
+          // ignore invalid URL
+        }
+      }
+    }
+  } catch {
+    // Non-blocking thumbnail lookup
+  }
+
+  return undefined;
+}
+
 async function fetchYouTubeSource(
   source: SocialSource,
   topicLabels: string[],
@@ -80,6 +148,14 @@ async function fetchYouTubeSource(
           const desc = decodeXmlEntities(
             entry.match(/<media:description>([\s\S]*?)<\/media:description>/i)?.[1] || ''
           );
+          const videoId = entry.match(/<yt:videoId>([^<]+)<\/yt:videoId>/i)?.[1]?.trim();
+          const mediaThumbRaw = entry.match(/<media:thumbnail[^>]*url="([^"]+)"/i)?.[1];
+          const imageUrl = mediaThumbRaw
+            ? decodeXmlEntities(mediaThumbRaw)
+            : videoId
+            ? `https://i.ytimg.com/vi/${videoId}/hqdefault.jpg`
+            : extractYouTubeThumbnail(link);
+
           return {
             platform: 'youtube',
             sourceId: source.id,
@@ -89,6 +165,7 @@ async function fetchYouTubeSource(
             content: desc ? `${title}. ${desc.slice(0, 900)}` : title,
             timestamp: published,
             url: link,
+            imageUrl,
           };
         });
 
@@ -168,6 +245,13 @@ async function fetchRedditSource(
                 selftext?: string;
                 permalink?: string;
                 url?: string;
+                url_overridden_by_dest?: string;
+                thumbnail?: string;
+                preview?: {
+                  images?: Array<{
+                    source?: { url?: string };
+                  }>;
+                };
                 created_utc?: number;
                 stickied?: boolean;
                 subreddit_name_prefixed?: string;
@@ -182,6 +266,18 @@ async function fetchRedditSource(
           .map((c) => {
             const d = c.data!;
             const permalink = d.permalink ? `https://www.reddit.com${d.permalink}` : `https://www.reddit.com/r/${cleanSub}`;
+            const previewUrl = d.preview?.images?.[0]?.source?.url
+              ? decodeXmlEntities(d.preview.images[0].source.url)
+              : undefined;
+            const destUrl = d.url_overridden_by_dest || d.url || '';
+            const directImageUrl = /\.(jpe?g|png|webp|gif)(\?.*)?$/i.test(destUrl)
+              ? destUrl
+              : extractYouTubeThumbnail(destUrl);
+            const redditThumb =
+              d.thumbnail && /^https?:\/\//i.test(d.thumbnail)
+                ? decodeXmlEntities(d.thumbnail)
+                : undefined;
+
             return {
               platform: 'reddit',
               sourceId: source.id,
@@ -191,6 +287,7 @@ async function fetchRedditSource(
               content: d.selftext ? `${d.title}. ${d.selftext.slice(0, 950)}` : d.title || '',
               timestamp: d.created_utc ? new Date(d.created_utc * 1000).toISOString() : new Date().toISOString(),
               url: permalink,
+              imageUrl: previewUrl || directImageUrl || redditThumb,
             };
           });
 
@@ -303,6 +400,18 @@ export async function runHybridFetchPipeline(
       });
     }
   });
+
+  // Resolve original thumbnails via YouTube/OpenGraph metadata for any post missing imageUrl
+  await Promise.allSettled(
+    rawPosts.map(async (post) => {
+      if (!post.imageUrl && post.url) {
+        const resolved = await resolveSourceThumbnail(post.url);
+        if (resolved) {
+          post.imageUrl = resolved;
+        }
+      }
+    })
+  );
 
   return { rawPosts, sourceStatuses };
 }

@@ -295,6 +295,7 @@ export interface RawSocialPost {
   content: string;
   timestamp: string;
   url: string;
+  imageUrl?: string;
 }
 
 function extractJsonString(raw: string): string {
@@ -589,7 +590,8 @@ Return ONLY valid JSON matching this schema:
       "title": "Short title or topic of the post",
       "content": "Factual, detailed summary of what the post actually says (3-5 sentences covering key facts, figures, names, and context)",
       "timestamp": "ISO date or human timestamp from search result e.g. 2026-11-21 or 2 days ago",
-      "url": "Direct https URL to the post or profile page found in search"
+      "url": "Direct https URL to the post or profile page found in search",
+      "imageUrl": "Direct https URL to the original post/article thumbnail image if available in search results, otherwise empty string"
     }
   ]
 }`,
@@ -616,25 +618,33 @@ Return ONLY valid JSON matching this schema:
       content?: string;
       timestamp?: string;
       url?: string;
+      imageUrl?: string;
     }>;
   }>(response.text, { hasRecentPosts: false, posts: [] });
 
   const rawPosts = (parsed.posts || [])
     .filter((p) => p && (p.content || p.title))
     .slice(0, 5)
-    .map((p, idx) => ({
-      platform: source.platform,
-      sourceId: source.id,
-      accountName: p.accountName || displayName,
-      handle: source.handle,
-      title: p.title || `${displayName} update`,
-      content: p.content || p.title || '',
-      timestamp: p.timestamp || new Date().toISOString(),
-      url: sanitizeHttpUrl(
-        p.url || groundingUrls[idx] || groundingUrls[0] || canonicalUrl,
-        canonicalUrl || 'https://google.com'
-      ),
-    }));
+    .map((p, idx) => {
+      const candidateImg =
+        typeof p.imageUrl === 'string' && /^https?:\/\//i.test(p.imageUrl.trim())
+          ? p.imageUrl.trim()
+          : undefined;
+      return {
+        platform: source.platform,
+        sourceId: source.id,
+        accountName: p.accountName || displayName,
+        handle: source.handle,
+        title: p.title || `${displayName} update`,
+        content: p.content || p.title || '',
+        timestamp: p.timestamp || new Date().toISOString(),
+        url: sanitizeHttpUrl(
+          p.url || groundingUrls[idx] || groundingUrls[0] || canonicalUrl,
+          canonicalUrl || 'https://google.com'
+        ),
+        imageUrl: candidateImg,
+      };
+    });
 
   if (rawPosts.length === 0) {
     return {
@@ -754,30 +764,53 @@ Evaluate every fetched post against the User Topics.
     items?: Array<Partial<FeedItem>>;
   }>(response.text, { dominantMood: 'Analytical', filteredOutCount: 0, items: [] });
 
+  const rawImageByUrl = new Map<string, string>();
+  const rawImageBySource = new Map<string, string>();
+  for (const rp of rawPosts) {
+    if (rp.imageUrl) {
+      if (rp.url) rawImageByUrl.set(rp.url.trim().toLowerCase(), rp.imageUrl);
+      const srcKey = `${rp.platform}:${(rp.handle || rp.accountName).toLowerCase()}`;
+      if (!rawImageBySource.has(srcKey)) rawImageBySource.set(srcKey, rp.imageUrl);
+    }
+  }
+
   const keptItems: FeedItem[] = (parsed.items || [])
     .filter((item) => (item.relevanceScore ?? 0) >= 5 && item.headline)
-    .map((item, idx) => ({
-      id: item.id || `feed-${Date.now()}-${idx}`,
-      platform: (item.platform as PlatformId) || 'x',
-      accountName: item.accountName || 'Verified Source',
-      handle: item.handle || '',
-      timestamp: item.timestamp || new Date().toISOString(),
-      topicTag: item.topicTag || topics[0]?.label || 'General',
-      headline: item.headline || '',
-      previewSummary: typeof item.previewSummary === 'string' ? item.previewSummary.trim() : undefined,
-      takeaways: Array.isArray(item.takeaways) ? item.takeaways.slice(0, 6) : [],
-      fullContent: typeof item.fullContent === 'string' ? item.fullContent.trim() : undefined,
-      sentiment: (['Breaking', 'Analytical', 'Bullish', 'Critical', 'Entertaining', 'Informative'].includes(
-        String(item.sentiment)
-      )
-        ? item.sentiment
-        : 'Informative') as FeedItem['sentiment'],
-      urgency: (['High', 'Medium', 'Low'].includes(String(item.urgency))
-        ? item.urgency
-        : 'Medium') as FeedItem['urgency'],
-      relevanceScore: Number(item.relevanceScore ?? 8),
-      sourceUrl: sanitizeHttpUrl(item.sourceUrl),
-    }));
+    .map((item, idx) => {
+      const safeUrl = sanitizeHttpUrl(item.sourceUrl);
+      const matchedImg =
+        rawImageByUrl.get(safeUrl.trim().toLowerCase()) ||
+        (typeof item.imageUrl === 'string' && /^https?:\/\//i.test(item.imageUrl.trim())
+          ? item.imageUrl.trim()
+          : undefined) ||
+        rawImageBySource.get(
+          `${(item.platform as PlatformId) || 'x'}:${(item.handle || item.accountName || '').toLowerCase()}`
+        );
+
+      return {
+        id: item.id || `feed-${Date.now()}-${idx}`,
+        platform: (item.platform as PlatformId) || 'x',
+        accountName: item.accountName || 'Verified Source',
+        handle: item.handle || '',
+        timestamp: item.timestamp || new Date().toISOString(),
+        topicTag: item.topicTag || topics[0]?.label || 'General',
+        headline: item.headline || '',
+        previewSummary: typeof item.previewSummary === 'string' ? item.previewSummary.trim() : undefined,
+        takeaways: Array.isArray(item.takeaways) ? item.takeaways.slice(0, 6) : [],
+        fullContent: typeof item.fullContent === 'string' ? item.fullContent.trim() : undefined,
+        imageUrl: matchedImg,
+        sentiment: (['Breaking', 'Analytical', 'Bullish', 'Critical', 'Entertaining', 'Informative'].includes(
+          String(item.sentiment)
+        )
+          ? item.sentiment
+          : 'Informative') as FeedItem['sentiment'],
+        urgency: (['High', 'Medium', 'Low'].includes(String(item.urgency))
+          ? item.urgency
+          : 'Medium') as FeedItem['urgency'],
+        relevanceScore: Number(item.relevanceScore ?? 8),
+        sourceUrl: safeUrl,
+      };
+    });
 
   const dominantMood: TopicMood =
     parsed.dominantMood === 'Serious' || parsed.dominantMood === 'Entertaining'

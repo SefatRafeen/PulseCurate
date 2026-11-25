@@ -11,7 +11,7 @@ import {
   type RetryStatusEvent,
 } from './gemini.ts';
 import { getMatchingSuggestions } from '../src/data/platforms.ts';
-import { runHybridFetchPipeline } from './hybridPipeline.ts';
+import { runHybridFetchPipeline, resolveSourceThumbnail } from './hybridPipeline.ts';
 import {
   dispatchEmailDigest,
   getResendConfigStatus,
@@ -332,6 +332,17 @@ export function createPulseCurateApp(): express.Express {
       const message = formatFriendlyGeminiError(err);
       res.status(500).json({ error: message });
     }
+  });
+
+  // Resolve real original thumbnail (YouTube / og:image / twitter:image) for a source URL
+  router.post('/article/thumbnail', async (req, res) => {
+    const url = typeof req.body?.url === 'string' ? req.body.url.trim() : '';
+    if (!url || !/^https?:\/\//i.test(url)) {
+      res.json({ imageUrl: null });
+      return;
+    }
+    const imageUrl = await resolveSourceThumbnail(url);
+    res.json({ imageUrl: imageUrl || null });
   });
 
   // Sync schedule & delivery profile

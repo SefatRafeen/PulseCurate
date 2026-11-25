@@ -46,6 +46,12 @@ export const StoryPreviewModal: React.FC<StoryPreviewModalProps> = ({
 
   useScrollLock(active);
 
+  const [imgFailed, setImgFailed] = React.useState(false);
+
+  useEffect(() => {
+    setImgFailed(false);
+  }, [item?.id]);
+
   useEffect(() => {
     if (!active) return;
     const handleKey = (e: KeyboardEvent) => {
@@ -59,8 +65,10 @@ export const StoryPreviewModal: React.FC<StoryPreviewModalProps> = ({
   }, [active, onClose, speech]);
 
   const coverImage = useMemo(() => {
-    return item ? getEditorialImage(item) : '';
+    return item ? getEditorialImage(item) : null;
   }, [item]);
+
+  const showCoverImage = Boolean(coverImage && !imgFailed);
 
   const readTime = useMemo(() => {
     return item ? getEstimatedReadTime(item) : '4 min read';
@@ -133,62 +141,92 @@ export const StoryPreviewModal: React.FC<StoryPreviewModalProps> = ({
 
           {/* Scrollable Modal Body with Strict Scroll Containment */}
           <div className="flex-1 overflow-y-auto modal-scroll-area">
-            {/* Full-bleed Cover Image Container */}
-            <div className="relative h-56 sm:h-72 w-full overflow-hidden bg-black/40 shrink-0">
-              <img
-                src={coverImage}
-                alt={item.headline}
-                className="w-full h-full object-cover"
-                loading="lazy"
-              />
-              <div className="absolute inset-0 bg-gradient-to-t from-[var(--glass-tint)] via-black/30 to-black/25" />
+            {showCoverImage && coverImage ? (
+              /* Full-bleed Original Source Cover Image Container */
+              <div className="relative h-56 sm:h-72 w-full overflow-hidden bg-black/40 shrink-0">
+                <img
+                  src={coverImage}
+                  alt={item.headline}
+                  onError={() => setImgFailed(true)}
+                  className="w-full h-full object-cover"
+                  loading="lazy"
+                />
+                <div className="absolute inset-0 bg-gradient-to-t from-[var(--glass-tint)] via-black/30 to-black/25" />
 
-              {/* Platform & Topic Pill badges over image */}
-              <div className="absolute top-4 left-4 right-16 flex flex-wrap items-center gap-2 z-10">
-                <span
-                  className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md border border-white/25 shadow-md"
-                  style={{
-                    backgroundColor: `${platformInfo.brandColor}d0`,
-                    color: '#ffffff',
-                  }}
+                <div className="absolute top-4 left-4 right-16 flex flex-wrap items-center gap-2 z-10">
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold backdrop-blur-md border border-white/25 shadow-md"
+                    style={{
+                      backgroundColor: `${platformInfo.brandColor}d0`,
+                      color: '#ffffff',
+                    }}
+                  >
+                    <PlatformIcon platform={item.platform} className="w-3.5 h-3.5" />
+                    {platformInfo.name}
+                  </span>
+                  <span className="px-3 py-1 rounded-full text-xs font-medium text-white/95 bg-black/45 backdrop-blur-md border border-white/20">
+                    {item.topicTag}
+                  </span>
+                </div>
+
+                <motion.button
+                  type="button"
+                  whileHover={{ scale: 1.07 }}
+                  whileTap={{ scale: 0.94 }}
+                  onClick={handleListenClick}
+                  className="absolute bottom-4 right-5 z-20 w-14 h-14 sm:w-16 sm:h-16 rounded-full liquid-btn-primary flex flex-col items-center justify-center shadow-xl border-2 border-white/40 cursor-pointer"
+                  title={
+                    speech.isPlaying
+                      ? speech.isPaused
+                        ? 'Resume Audio'
+                        : 'Pause Audio'
+                      : 'Listen to AI Summary'
+                  }
                 >
-                  <PlatformIcon platform={item.platform} className="w-3.5 h-3.5" />
-                  {platformInfo.name}
-                </span>
-                <span className="px-3 py-1 rounded-full text-xs font-medium text-white/95 bg-black/45 backdrop-blur-md border border-white/20">
-                  {item.topicTag}
-                </span>
+                  {speech.isPlaying && !speech.isPaused ? (
+                    <div className="flex items-center gap-1">
+                      <span className="w-1 h-4 bg-current rounded-full animate-pulse" />
+                      <span className="w-1 h-6 bg-current rounded-full animate-pulse delay-75" />
+                      <span className="w-1 h-3 bg-current rounded-full animate-pulse delay-150" />
+                    </div>
+                  ) : (
+                    <Headphones className="w-6 h-6 sm:w-7 sm:h-7" />
+                  )}
+                  <span className="text-[9px] font-bold tracking-tight uppercase mt-0.5">
+                    {speech.isPlaying && !speech.isPaused ? 'Pause' : 'Listen'}
+                  </span>
+                </motion.button>
               </div>
+            ) : (
+              /* Clean Source Header when post has no original thumbnail */
+              <div className="pt-5 px-5 sm:px-7 pr-16 flex flex-wrap items-center justify-between gap-3">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span
+                    className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold shadow-sm"
+                    style={{
+                      backgroundColor: platformInfo.brandColor,
+                      color: '#ffffff',
+                    }}
+                  >
+                    <PlatformIcon platform={item.platform} className="w-3.5 h-3.5" />
+                    {platformInfo.name}
+                  </span>
+                  <span className="liquid-pill px-3 py-1 text-xs font-medium text-[var(--pc-text)]">
+                    {item.topicTag}
+                  </span>
+                </div>
 
-              {/* Floating Circular Listen / AI Audio Summary Button */}
-              <motion.button
-                type="button"
-                whileHover={{ scale: 1.07 }}
-                whileTap={{ scale: 0.94 }}
-                onClick={handleListenClick}
-                className="absolute bottom-4 right-5 z-20 w-14 h-14 sm:w-16 sm:h-16 rounded-full liquid-btn-primary flex flex-col items-center justify-center shadow-xl border-2 border-white/40 cursor-pointer"
-                title={
-                  speech.isPlaying
-                    ? speech.isPaused
-                      ? 'Resume Audio'
-                      : 'Pause Audio'
-                    : 'Listen to AI Summary'
-                }
-              >
-                {speech.isPlaying && !speech.isPaused ? (
-                  <div className="flex items-center gap-1">
-                    <span className="w-1 h-4 bg-current rounded-full animate-pulse" />
-                    <span className="w-1 h-6 bg-current rounded-full animate-pulse delay-75" />
-                    <span className="w-1 h-3 bg-current rounded-full animate-pulse delay-150" />
-                  </div>
-                ) : (
-                  <Headphones className="w-6 h-6 sm:w-7 sm:h-7" />
-                )}
-                <span className="text-[9px] font-bold tracking-tight uppercase mt-0.5">
-                  {speech.isPlaying && !speech.isPaused ? 'Pause' : 'Listen'}
-                </span>
-              </motion.button>
-            </div>
+                <motion.button
+                  type="button"
+                  whileTap={{ scale: 0.94 }}
+                  onClick={handleListenClick}
+                  className="liquid-btn-primary px-3.5 py-1.5 text-xs font-bold flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Headphones className="w-3.5 h-3.5" />
+                  <span>{speech.isPlaying && !speech.isPaused ? 'Pause' : 'Listen'}</span>
+                </motion.button>
+              </div>
+            )}
 
             {/* Card Body Content */}
             <div className="p-5 sm:p-7 space-y-5">

@@ -65,6 +65,7 @@ export const ArticleReaderView: React.FC<ArticleReaderViewProps> = ({
   const [textAlign, setTextAlign] = useState<'left' | 'center' | 'justify'>('left');
   const [showControlSheet, setShowControlSheet] = useState<boolean>(false);
   const [isEnriching, setIsEnriching] = useState<boolean>(false);
+  const [imgFailed, setImgFailed] = useState<boolean>(false);
 
   const active = isOpen && Boolean(item);
   useScrollLock(active);
@@ -73,6 +74,7 @@ export const ArticleReaderView: React.FC<ArticleReaderViewProps> = ({
   useEffect(() => {
     setShowControlSheet(false);
     setViewMode('text');
+    setImgFailed(false);
     if (active && scrollContainerRef.current) {
       scrollContainerRef.current.scrollTop = 0;
     }
@@ -306,36 +308,60 @@ export const ArticleReaderView: React.FC<ArticleReaderViewProps> = ({
 
       {/* Main Editorial Article Container */}
       <main className="max-w-3xl mx-auto px-4 sm:px-8 py-7 sm:py-11 pb-36 transition-all">
-        {/* Cover Image Header */}
-        <div className="relative w-full h-60 sm:h-96 rounded-[28px] overflow-hidden mb-8 shadow-2xl border border-[var(--pc-border)]">
-          <img
-            src={coverImage}
-            alt={item.headline}
-            className="w-full h-full object-cover"
-          />
-          <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+        {/* Original Source Cover Image (or clean attribution strip if post has no image) */}
+        {coverImage && !imgFailed ? (
+          <div className="relative w-full h-60 sm:h-96 rounded-[28px] overflow-hidden mb-8 shadow-2xl border border-[var(--pc-border)]">
+            <img
+              src={coverImage}
+              alt={item.headline}
+              onError={() => setImgFailed(true)}
+              className="w-full h-full object-cover"
+            />
+            <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
 
-          <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center justify-between gap-3 text-white">
+            <div className="absolute bottom-5 left-5 right-5 flex flex-wrap items-center justify-between gap-3 text-white">
+              <div className="flex items-center gap-2.5">
+                <span
+                  className="px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 backdrop-blur-md"
+                  style={{ backgroundColor: platformInfo.brandColor }}
+                >
+                  <PlatformIcon platform={item.platform} className="w-3.5 h-3.5" />
+                  {platformInfo.name}
+                </span>
+                <span className="text-xs font-medium text-white/85">
+                  by @{item.accountName}
+                </span>
+              </div>
+              <div className="text-xs font-medium text-white/85 flex items-center gap-2">
+                <Clock className="w-3.5 h-3.5" />
+                <span>{readTime}</span>
+                <span>•</span>
+                <span>{formatRelativeTime(item.timestamp)}</span>
+              </div>
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div className="flex items-center gap-2.5">
               <span
-                className="px-3 py-1 rounded-full text-xs font-bold shadow-md flex items-center gap-1.5 backdrop-blur-md"
+                className="px-3 py-1 rounded-full text-xs font-bold shadow-sm flex items-center gap-1.5 text-white"
                 style={{ backgroundColor: platformInfo.brandColor }}
               >
                 <PlatformIcon platform={item.platform} className="w-3.5 h-3.5" />
                 {platformInfo.name}
               </span>
-              <span className="text-xs font-medium text-white/85">
+              <span className="text-xs font-medium" style={{ color: surfaceStyles.mutedColor }}>
                 by @{item.accountName}
               </span>
             </div>
-            <div className="text-xs font-medium text-white/85 flex items-center gap-2">
+            <div className="text-xs font-medium flex items-center gap-2" style={{ color: surfaceStyles.mutedColor }}>
               <Clock className="w-3.5 h-3.5" />
               <span>{readTime}</span>
               <span>•</span>
               <span>{formatRelativeTime(item.timestamp)}</span>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Audio Narration Hero Player */}
         {viewMode === 'audio' && (

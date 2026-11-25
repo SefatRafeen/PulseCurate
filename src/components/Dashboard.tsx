@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   AlertCircle,
   Bookmark,
@@ -93,6 +93,12 @@ export const Dashboard: React.FC<DashboardProps> = ({
   // Modal / Reader State
   const [previewStoryId, setPreviewStoryId] = useState<string | null>(null);
   const [readerStoryId, setReaderStoryId] = useState<string | null>(null);
+  const [failedImageUrls, setFailedImageUrls] = useState<Record<string, boolean>>({});
+  const thumbAttemptedRef = useRef<Set<string>>(new Set());
+
+  const markImageFailed = (url: string) => {
+    setFailedImageUrls((prev) => (prev[url] ? prev : { ...prev, [url]: true }));
+  };
 
   // Bookmarked / Saved Stories State (persisted to localStorage)
   const [savedStoryIds, setSavedStoryIds] = useState<string[]>(() => {
@@ -205,6 +211,37 @@ export const Dashboard: React.FC<DashboardProps> = ({
       setTopStoryIndex(topStories.length - 1);
     }
   }, [topStories.length, topStoryIndex]);
+
+  // Backfill original source thumbnails for any cached items missing imageUrl
+  useEffect(() => {
+    if (!isOnline || items.length === 0) return;
+    const missing = items
+      .filter((it) => !it.imageUrl && it.sourceUrl && !thumbAttemptedRef.current.has(it.id))
+      .slice(0, 12);
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    missing.forEach((it) => thumbAttemptedRef.current.add(it.id));
+
+    Promise.allSettled(
+      missing.map(async (it) => {
+        const res = await fetch('/api/article/thumbnail', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: it.sourceUrl }),
+        });
+        if (!res.ok) return;
+        const data = (await res.json()) as { imageUrl?: string | null };
+        if (!cancelled && data.imageUrl) {
+          onEnrichFeedItem(it.id, { imageUrl: data.imageUrl });
+        }
+      })
+    ).catch(() => {});
+
+    return () => {
+      cancelled = true;
+    };
+  }, [items, isOnline, onEnrichFeedItem]);
 
   // Saved Stories List
   const savedStories = useMemo(() => {
@@ -412,6 +449,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                   onActiveItemClick={(story) => setPreviewStoryId(story.id)}
                   renderCard={(story, { isActive }) => {
                     const coverImg = getEditorialImage(story);
+                    const hasThumb = Boolean(coverImg && !failedImageUrls[coverImg]);
                     const readTime = getEstimatedReadTime(story);
                     const pInfo = getPlatformInfo(story.platform);
 
@@ -423,28 +461,44 @@ export const Dashboard: React.FC<DashboardProps> = ({
                             : ''
                         }`}
                       >
-                        <div className="relative h-40 sm:h-44 w-full rounded-[20px] overflow-hidden mb-3 bg-black/30">
-                          <img
-                            src={coverImg}
-                            alt={story.headline}
-                            draggable={false}
-                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                            loading="lazy"
-                          />
-                          <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
+                        {hasThumb && coverImg ? (
+                          <div className="relative h-40 sm:h-44 w-full rounded-[20px] overflow-hidden mb-3 bg-black/30">
+                            <img
+                              src={coverImg}
+                              alt={story.headline}
+                              draggable={false}
+                              onError={() => markImageFailed(coverImg)}
+                              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                              loading="lazy"
+                            />
+                            <div className="absolute inset-0 bg-gradient-to-t from-black/75 via-transparent to-transparent" />
 
-                          <div
-                            className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white backdrop-blur-md shadow-sm"
-                            style={{ backgroundColor: `${pInfo.brandColor}d0` }}
-                          >
-                            <PlatformIcon platform={story.platform} className="w-3 h-3" />
-                            <span>{pInfo.shortName}</span>
-                          </div>
+                            <div
+                              className="absolute top-2.5 left-2.5 flex items-center gap-1 px-2.5 py-0.5 rounded-full text-[10px] font-bold text-white backdrop-blur-md shadow-sm"
+                              style={{ backgroundColor: `${pInfo.brandColor}d0` }}
+                            >
+                              <PlatformIcon platform={story.platform} className="w-3 h-3" />
+                              <span>{pInfo.shortName}</span>
+                            </div>
 
-                          <div className="absolute bottom-2.5 right-2.5 text-[10px] font-medium text-white/95 backdrop-blur-md px-2.5 py-0.5 rounded-full bg-black/45">
-                            {readTime}
+                            <div className="absolute bottom-2.5 right-2.5 text-[10px] font-medium text-white/95 backdrop-blur-md px-2.5 py-0.5 rounded-full bg-black/45">
+                              {readTime}
+                            </div>
                           </div>
-                        </div>
+                        ) : (
+                          <div className="flex items-center justify-between gap-2 mb-3">
+                            <div
+                              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-bold text-white shadow-sm"
+                              style={{ backgroundColor: pInfo.brandColor }}
+                            >
+                              <PlatformIcon platform={story.platform} className="w-3 h-3" />
+                              <span>{pInfo.shortName}</span>
+                            </div>
+                            <span className="text-[10px] font-medium text-[var(--pc-text-muted)] liquid-pill px-2.5 py-0.5">
+                              {readTime}
+                            </span>
+                          </div>
+                        )}
 
                         <h3 className="font-display font-bold text-sm sm:text-base text-[var(--pc-text)] leading-snug line-clamp-2 mb-2.5 group-hover:text-[var(--pc-accent)] transition-colors">
                           {story.headline}
@@ -662,6 +716,7 @@ export const Dashboard: React.FC<DashboardProps> = ({
                 {filteredItems.map((item, idx) => {
                   const pInfo = getPlatformInfo(item.platform);
                   const coverImg = getEditorialImage(item);
+                  const hasThumb = Boolean(coverImg && !failedImageUrls[coverImg]);
                   const readTime = getEstimatedReadTime(item);
                   const stats = getEngagementStats(item);
                   const isSaved = isStorySaved(item.id);
@@ -674,51 +729,88 @@ export const Dashboard: React.FC<DashboardProps> = ({
                       transition={{ duration: 0.25, delay: Math.min(idx * 0.03, 0.22) }}
                       className="tactile-pillow-card overflow-hidden flex flex-col justify-between group"
                     >
-                      {/* Card Cover Image */}
-                      <div
-                        className="relative h-44 w-full overflow-hidden bg-black/30 cursor-pointer"
-                        onClick={() => setPreviewStoryId(item.id)}
-                      >
-                        <img
-                          src={coverImg}
-                          alt={item.headline}
-                          className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                          loading="lazy"
-                        />
-                        <div className="absolute inset-0 bg-gradient-to-t from-[var(--glass-tint)] via-transparent to-black/30" />
+                      {hasThumb && coverImg ? (
+                        /* Original Source Cover Image */
+                        <div
+                          className="relative h-44 w-full overflow-hidden bg-black/30 cursor-pointer"
+                          onClick={() => setPreviewStoryId(item.id)}
+                        >
+                          <img
+                            src={coverImg}
+                            alt={item.headline}
+                            onError={() => markImageFailed(coverImg)}
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                            loading="lazy"
+                          />
+                          <div className="absolute inset-0 bg-gradient-to-t from-[var(--glass-tint)] via-transparent to-black/30" />
 
-                        <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                          <div className="absolute top-3 left-3 right-3 flex items-center justify-between">
+                            <span
+                              className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-md backdrop-blur-md"
+                              style={{ backgroundColor: `${pInfo.brandColor}d5` }}
+                            >
+                              <PlatformIcon platform={item.platform} className="w-3 h-3" />
+                              {pInfo.shortName}
+                            </span>
+
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSaveStory(item);
+                              }}
+                              className={`p-2 rounded-full liquid-glass backdrop-blur-md transition-all cursor-pointer ${
+                                isSaved
+                                  ? 'text-[var(--pc-accent)]'
+                                  : 'text-white/85 hover:text-white'
+                              }`}
+                              title={isSaved ? 'Saved' : 'Save Story'}
+                              aria-label={isSaved ? 'Remove saved story' : 'Save story'}
+                            >
+                              <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
+                            </button>
+                          </div>
+
+                          <div className="absolute bottom-2.5 right-3 text-[11px] font-medium text-white/90 backdrop-blur-md px-2.5 py-0.5 rounded-full bg-black/45 flex items-center gap-1">
+                            <Clock className="w-3 h-3" />
+                            <span>{readTime}</span>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Clean Source Header when post has no original thumbnail */
+                        <div className="px-5 sm:px-6 pt-5 flex items-center justify-between gap-2">
                           <span
-                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-md backdrop-blur-md"
-                            style={{ backgroundColor: `${pInfo.brandColor}d5` }}
+                            className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold text-white shadow-sm"
+                            style={{ backgroundColor: pInfo.brandColor }}
                           >
                             <PlatformIcon platform={item.platform} className="w-3 h-3" />
                             {pInfo.shortName}
                           </span>
 
-                          <button
-                            type="button"
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              toggleSaveStory(item);
-                            }}
-                            className={`p-2 rounded-full liquid-glass backdrop-blur-md transition-all cursor-pointer ${
-                              isSaved
-                                ? 'text-[var(--pc-accent)]'
-                                : 'text-white/85 hover:text-white'
-                            }`}
-                            title={isSaved ? 'Saved' : 'Save Story'}
-                            aria-label={isSaved ? 'Remove saved story' : 'Save story'}
-                          >
-                            <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
-                          </button>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[11px] font-medium text-[var(--pc-text-muted)] liquid-pill px-2.5 py-0.5 flex items-center gap-1">
+                              <Clock className="w-3 h-3" />
+                              <span>{readTime}</span>
+                            </span>
+                            <button
+                              type="button"
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                toggleSaveStory(item);
+                              }}
+                              className={`p-2 rounded-full liquid-glass transition-all cursor-pointer ${
+                                isSaved
+                                  ? 'text-[var(--pc-accent)]'
+                                  : 'text-[var(--pc-text-muted)] hover:text-[var(--pc-text)]'
+                              }`}
+                              title={isSaved ? 'Saved' : 'Save Story'}
+                              aria-label={isSaved ? 'Remove saved story' : 'Save story'}
+                            >
+                              <Bookmark className={`w-3.5 h-3.5 ${isSaved ? 'fill-current' : ''}`} />
+                            </button>
+                          </div>
                         </div>
-
-                        <div className="absolute bottom-2.5 right-3 text-[11px] font-medium text-white/90 backdrop-blur-md px-2.5 py-0.5 rounded-full bg-black/45 flex items-center gap-1">
-                          <Clock className="w-3 h-3" />
-                          <span>{readTime}</span>
-                        </div>
-                      </div>
+                      )}
 
                       {/* Card Content */}
                       <div className="p-5 sm:p-6 flex-1 flex flex-col justify-between space-y-4">
